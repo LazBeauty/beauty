@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   Scissors, MapPin, Search, Star, Calendar, Clock, Check, X,
-  ChevronLeft, Sparkles, Bell, Loader2, Plus, Trash2, Pencil, User, Home
+  ChevronLeft, Sparkles, Bell, Loader2, Plus, Trash2, Pencil, User, Home, Phone, Info
 } from "lucide-react";
 import { supabase } from "./lib/supabase";
 
@@ -374,6 +374,33 @@ function RatingModal({ booking, onDone }) {
   );
 }
 
+function ProviderProfileModal({ provider, onClose }) {
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 px-6 pb-6 sm:pb-0">
+      <div className="bg-white rounded-2xl p-6 w-full max-w-sm max-h-[80vh] overflow-y-auto">
+        <div className="flex items-center gap-3">
+          <Avatar url={provider.avatar_url} name={provider.name} size={56} />
+          <div>
+            <div className="font-serif text-[#2B1B2E] text-lg" style={{fontWeight:600}}>{provider.salon}</div>
+            <div className="text-[#8B7A8E] text-xs">{provider.name} · {provider.city}</div>
+            <div className="flex items-center gap-1 text-xs text-[#2B1B2E] mt-0.5"><Star size={11} className="fill-[#B5566B] text-[#B5566B]"/>{provider.rating}</div>
+          </div>
+        </div>
+        {provider.bio && <p className="text-[#6B5A6E] text-sm mt-4 leading-relaxed">{provider.bio}</p>}
+        <div className="flex flex-col gap-2 mt-4">
+          {provider.phone && (
+            <div className="flex items-center gap-2 text-sm text-[#2B1B2E]"><Phone size={14} className="text-[#B5566B]"/>{provider.phone}</div>
+          )}
+          {provider.address && (
+            <div className="flex items-center gap-2 text-sm text-[#2B1B2E]"><MapPin size={14} className="text-[#B5566B]"/>{provider.address}</div>
+          )}
+        </div>
+        <button onClick={onClose} className="mt-6 w-full py-3 rounded-xl border border-[#EDE3E0] text-[#8B7A8E] text-sm font-medium">Затвори</button>
+      </div>
+    </div>
+  );
+}
+
 function ProviderReviews({ providerId }) {
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -444,7 +471,8 @@ function ClientHomeScreen({ client, goSearch, goBookings }) {
 }
 
 function ClientHome({ client, onHome, onLogout }) {
-  const [view, setView] = useState("home"); // home | search | mine | profile
+  const [view, setViewRaw] = useState(() => localStorage.getItem("termin-client-view") || "home");
+  const setView = (v) => { localStorage.setItem("termin-client-view", v); setViewRaw(v); };
   const [clientData, setClientData] = useState(client);
   const [ratingQueue, setRatingQueue] = useState([]);
 
@@ -497,11 +525,18 @@ function MyBookings({ client }) {
     supabase.from("bookings").select("*").eq("client_id", client.id).order("created_at", { ascending: false })
       .then(({ data, error }) => { if (error) console.error(error); setBookings(data || []); setLoading(false); });
   };
-  useEffect(load, [client.id]);
+  useEffect(() => {
+    load();
+    const channel = supabase
+      .channel(`client-bookings-${client.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "bookings", filter: `client_id=eq.${client.id}` }, () => load())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [client.id]);
 
   const cancel = async (booking) => {
     setBookings(prev => prev.map(b => b.id === booking.id ? { ...b, status: "cancelled" } : b));
-    const { error } = await supabase.from("bookings").update({ status: "cancelled", provider_notified: false }).eq("id", booking.id);
+    const { error } = await supabase.from("bookings").update({ status: "cancelled", provider_notified: false, cancelled_by: "client" }).eq("id", booking.id);
     if (error) { console.error(error); load(); return; }
     if (booking.availability_id) await supabase.from("availability").update({ status: "free" }).eq("id", booking.availability_id);
   };
@@ -529,6 +564,11 @@ function MyBookings({ client }) {
               <button onClick={()=>cancel(b)} className="text-[#B5566B] text-xs font-medium">Откажи</button>
             )}
           </div>
+          {b.status === "cancelled" && b.cancelled_by === "provider" && (
+            <p className="text-[#8A4A4A] text-xs mt-2 pt-2 border-t border-[#F2EAE7]">
+              Откажано од давателот{b.cancel_reason ? `: ${b.cancel_reason}` : "."}
+            </p>
+          )}
           {b.rating > 0 && (
             <div className="flex items-center gap-1 mt-2 pt-2 border-t border-[#F2EAE7]">
               {Array.from({length:5}).map((_,idx)=>(<Star key={idx} size={11} className={idx < b.rating ? "fill-[#B5566B] text-[#B5566B]" : "text-[#DDD2D5]"} />))}
@@ -540,13 +580,71 @@ function MyBookings({ client }) {
   );
 }
 
+function SearchByDate({ city, category, client, onPicked }) {
+  const [date, setDate] = useState(null);
+  const [results, setResults] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!date) { setResults(null); return; }
+    setLoading(true);
+    (async () => {
+      const { data: availRows, error: availErr } = await supabase.from("availability").select("provider_id").eq("date", date).eq("status", "free");
+      if (availErr) { console.error(availErr); setResults([]); setLoading(false); return; }
+      const ids = [...new Set((availRows || []).map(a => a.provider_id))];
+      if (ids.length === 0) { setResults([]); setLoading(false); return; }
+      const { data: provs, error: provErr } = await supabase.from("providers").select("*").in("id", ids).eq("city", city).eq("available", true);
+      if (provErr) console.error(provErr);
+      const filtered = (provs || []).filter(p => !category || (p.services || []).some(s => s.category === category));
+      setResults(filtered);
+      setLoading(false);
+    })();
+  }, [date, city, category]);
+
+  return (
+    <div className="px-6 pt-4 pb-8">
+      <MonthCalendar selectedDate={date} onSelect={setDate} />
+      {date && (
+        <div className="mt-4">
+          <div className="text-[#6B5A6E] text-xs font-medium mb-2 uppercase tracking-wide">Слободни на {formatDate(date)}</div>
+          {loading ? <Spinner /> : results.length === 0 ? (
+            <p className="text-[#B3A5B5] text-sm text-center pt-4">Никој во {city} нема слободен термин на овој датум{category ? " за таа услуга" : ""}.</p>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {results.map(p => {
+                const list = category ? (p.services||[]).filter(s=>s.category===category) : (p.services||[]);
+                const min = list.length ? Math.min(...list.map(s=>s.price)) : null;
+                return (
+                  <button key={p.id} onClick={()=>onPicked(p, date)} className="text-left bg-white border border-[#EDE3E0] rounded-2xl p-4 flex items-center gap-3 hover:border-[#B5566B] transition-colors">
+                    <Avatar url={p.avatar_url} name={p.name} size={44} />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[#2B1B2E] font-medium text-sm truncate">{p.salon}</div>
+                      <div className="text-[#8B7A8E] text-xs truncate">{p.name} · {p.city}</div>
+                    </div>
+                    <div className="flex flex-col items-end shrink-0">
+                      <div className="flex items-center gap-1 text-xs text-[#2B1B2E]"><Star size={12} className="fill-[#B5566B] text-[#B5566B]"/>{p.rating}</div>
+                      {min != null && <div className="text-[#8B7A8E] text-xs mt-0.5">од {fmt(min)}</div>}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SearchBook({ client }) {
+  const [mode, setMode] = useState("provider"); // provider | date
   const [city, setCity] = useState("Скопје");
   const [category, setCategory] = useState(null);
   const [query, setQuery] = useState("");
   const [providers, setProviders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
+  const [pickedDate, setPickedDate] = useState(null);
   const [booked, setBooked] = useState(null);
 
   useEffect(() => {
@@ -580,7 +678,7 @@ function SearchBook({ client }) {
     );
   }
   if (selected) {
-    return <BookingDetail provider={selected} client={client} onBack={() => setSelected(null)} onConfirm={setBooked} preselectCategory={category} />;
+    return <BookingDetail provider={selected} client={client} onBack={() => { setSelected(null); setPickedDate(null); }} onConfirm={setBooked} preselectCategory={category} preselectDate={pickedDate} />;
   }
 
   return (
@@ -603,8 +701,14 @@ function SearchBook({ client }) {
               className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${category===s.id ? "bg-[#B5566B] text-white border-[#B5566B]" : "bg-white text-[#6B5A6E] border-[#EDE3E0]"}`}>{s.icon} {s.name}</button>
           ))}
         </div>
+        <div className="mt-3 flex gap-1.5 bg-[#F2EAE7] rounded-xl p-1">
+          <button onClick={()=>setMode("provider")} className={`flex-1 py-2 rounded-lg text-xs font-medium transition-colors ${mode==="provider" ? "bg-white text-[#2B1B2E] shadow-sm" : "text-[#8B7A8E]"}`}>По мајстор</button>
+          <button onClick={()=>setMode("date")} className={`flex-1 py-2 rounded-lg text-xs font-medium transition-colors ${mode==="date" ? "bg-white text-[#2B1B2E] shadow-sm" : "text-[#8B7A8E]"}`}>По датум · не ми е важно кој</button>
+        </div>
       </div>
-      {loading ? <Spinner /> : (
+      {mode === "date" ? (
+        <SearchByDate city={city} category={category} client={client} onPicked={(p, d)=>{ setSelected(p); setPickedDate(d); }} />
+      ) : loading ? <Spinner /> : (
         <div className="flex-1 px-6 pb-8 flex flex-col gap-3">
           {results.length === 0 && <p className="text-[#B3A5B5] text-sm text-center pt-8">Нема сеуште регистрирано некој во {city} за овој филтер.</p>}
           {results.map(p => {
@@ -630,15 +734,16 @@ function SearchBook({ client }) {
   );
 }
 
-function BookingDetail({ provider, client, onBack, onConfirm, preselectCategory }) {
+function BookingDetail({ provider, client, onBack, onConfirm, preselectCategory, preselectDate }) {
   const services = provider.services || [];
   const filtered = preselectCategory ? services.filter(s=>s.category===preselectCategory) : services;
   const [serviceId, setServiceId] = useState((filtered[0] || services[0])?.id);
   const [avail, setAvail] = useState([]);
   const [loadingAvail, setLoadingAvail] = useState(true);
-  const [date, setDate] = useState(null);
+  const [date, setDate] = useState(preselectDate || null);
   const [slotId, setSlotId] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
   const service = services.find(s => s.id === serviceId);
 
   useEffect(() => {
@@ -674,13 +779,15 @@ function BookingDetail({ provider, client, onBack, onConfirm, preselectCategory 
   return (
     <div className="min-h-full bg-[#FDF9F7] flex flex-col px-6 pt-6 pb-8">
       <button onClick={onBack} className="text-[#8B7A8E] flex items-center gap-1 text-sm mb-4"><ChevronLeft size={16}/>Назад</button>
-      <div className="flex items-center gap-3">
+      <button onClick={()=>setShowProfile(true)} className="flex items-center gap-3 text-left w-full">
         <Avatar url={provider.avatar_url} name={provider.name} size={48} />
-        <div>
+        <div className="flex-1">
           <div className="font-serif text-[#2B1B2E] text-lg" style={{ fontWeight: 600 }}>{provider.salon}</div>
           <div className="text-[#8B7A8E] text-xs">{provider.name} · {provider.city}</div>
         </div>
-      </div>
+        <Info size={16} className="text-[#B3A5B5]" />
+      </button>
+      {showProfile && <ProviderProfileModal provider={provider} onClose={()=>setShowProfile(false)} />}
 
       <div className="mt-6">
         <div className="text-[#6B5A6E] text-xs font-medium mb-2 uppercase tracking-wide">Услуга</div>
@@ -820,14 +927,19 @@ function ProviderProfile({ provider, onSaved, onLogout }) {
   const [name, setName] = useState(provider.name);
   const [salon, setSalon] = useState(provider.salon);
   const [city, setCity] = useState(provider.city);
+  const [phone, setPhone] = useState(provider.phone || "");
+  const [address, setAddress] = useState(provider.address || "");
+  const [bio, setBio] = useState(provider.bio || "");
   const [avatarUrl, setAvatarUrl] = useState(provider.avatar_url || null);
   const [saving, setSaving] = useState(false);
   const save = async () => {
     if (!name.trim() || !salon.trim() || !city.trim()) return;
     setSaving(true);
-    const { error } = await supabase.from("providers").update({ name: name.trim(), salon: salon.trim(), city: city.trim(), avatar_url: avatarUrl }).eq("id", provider.id);
+    const payload = { name: name.trim(), salon: salon.trim(), city: city.trim(), phone: phone.trim() || null, address: address.trim() || null, bio: bio.trim() || null, avatar_url: avatarUrl };
+    const { error } = await supabase.from("providers").update(payload).eq("id", provider.id);
     setSaving(false);
-    if (!error) onSaved({ ...provider, name: name.trim(), salon: salon.trim(), city: city.trim(), avatar_url: avatarUrl });
+    if (!error) onSaved({ ...provider, ...payload });
+    else console.error(error);
   };
   return (
     <div className="flex flex-col gap-4">
@@ -835,6 +947,10 @@ function ProviderProfile({ provider, onSaved, onLogout }) {
       <TextField value={name} onChange={e=>setName(e.target.value)} placeholder="Твоето име" />
       <TextField value={salon} onChange={e=>setSalon(e.target.value)} placeholder="Име на салон/бренд" />
       <CityCombobox value={city} onChange={setCity} />
+      <TextField value={phone} onChange={e=>setPhone(e.target.value)} placeholder="Телефон (го гледаат клиентите)" />
+      <TextField value={address} onChange={e=>setAddress(e.target.value)} placeholder="Адреса (опционално)" />
+      <textarea value={bio} onChange={e=>setBio(e.target.value)} placeholder="Кратко за тебе (опционално)" rows={3}
+        className="bg-white border border-[#EDE3E0] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#B5566B] resize-none" />
       <button disabled={saving} onClick={save} className="bg-[#B5566B] text-white rounded-xl py-3 text-sm font-medium flex items-center justify-center gap-2">
         {saving && <Loader2 size={15} className="animate-spin"/>} Зачувај промени
       </button>
@@ -914,15 +1030,16 @@ function ServiceManager({ provider, onUpdated }) {
 function AvailabilityManager({ provider }) {
   const [date, setDate] = useState(null);
   const [slots, setSlots] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [customTime, setCustomTime] = useState("");
 
-  const load = () => {
-    setLoading(true);
-    supabase.from("availability").select("*").eq("provider_id", provider.id).gte("date", todayStr()).order("date").order("time")
-      .then(({ data, error }) => { if (error) console.error(error); setSlots(data || []); setLoading(false); });
+  const load = async () => {
+    const { data, error } = await supabase.from("availability").select("*").eq("provider_id", provider.id).gte("date", todayStr()).order("date").order("time");
+    if (error) console.error(error);
+    setSlots(data || []);
+    setInitialLoading(false);
   };
-  useEffect(load, [provider.id]);
+  useEffect(() => { load(); }, [provider.id]);
 
   const addSlot = async (time) => {
     if (!date || !time) return;
@@ -939,7 +1056,7 @@ function AvailabilityManager({ provider }) {
 
   const daySlots = slots.filter(s => s.date === date).sort((a,b)=>a.time.localeCompare(b.time));
 
-  if (loading) return <Spinner />;
+  if (initialLoading) return <Spinner />;
 
   return (
     <div className="flex flex-col gap-4">
@@ -1123,9 +1240,30 @@ function ProviderHomeScreen({ provider, pendingCount, upcomingCount, goTab }) {
   );
 }
 
+function CancelReasonModal({ booking, onConfirm, onClose, saving }) {
+  const [reason, setReason] = useState("");
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 px-6 pb-6 sm:pb-0">
+      <div className="bg-white rounded-2xl p-6 w-full max-w-sm">
+        <h3 className="font-serif text-[#2B1B2E] text-lg" style={{fontWeight:600}}>Откажи термин</h3>
+        <p className="text-[#8B7A8E] text-sm mt-1 mb-4">{booking.client_name} · {booking.service_name} · {booking.day}, {booking.time}</p>
+        <textarea value={reason} onChange={e=>setReason(e.target.value)} placeholder="Наведи причина за откажување" rows={3}
+          className="w-full bg-[#FDF9F7] border border-[#EDE3E0] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#B5566B] resize-none" />
+        <div className="flex gap-2 mt-4">
+          <button onClick={onClose} className="flex-1 py-3 rounded-xl border border-[#EDE3E0] text-[#8B7A8E] text-sm font-medium">Назад</button>
+          <button disabled={!reason.trim() || saving} onClick={()=>onConfirm(reason.trim())} className="flex-1 py-3 rounded-xl bg-[#B5566B] disabled:opacity-40 text-white text-sm font-medium flex items-center justify-center gap-2">
+            {saving && <Loader2 size={14} className="animate-spin"/>} Откажи термин
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ProviderDashboard({ provider: initialProvider, onLogout }) {
   const [provider, setProvider] = useState(initialProvider);
-  const [tab, setTab] = useState("home");
+  const [tab, setTabRaw] = useState(() => localStorage.getItem("termin-provider-tab") || "home");
+  const setTab = (t) => { localStorage.setItem("termin-provider-tab", t); setTabRaw(t); };
   const [view, setView] = useState("main");
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1136,7 +1274,14 @@ function ProviderDashboard({ provider: initialProvider, onLogout }) {
     supabase.from("bookings").select("*").eq("provider_id", provider.id).order("created_at", { ascending: false })
       .then(({ data, error }) => { if (error) console.error(error); setBookings(data || []); setLoading(false); });
   };
-  useEffect(loadBookings, [provider.id]);
+  useEffect(() => {
+    loadBookings();
+    const channel = supabase
+      .channel(`provider-bookings-${provider.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "bookings", filter: `provider_id=eq.${provider.id}` }, () => loadBookings())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [provider.id]);
 
   const respond = async (booking, status) => {
     setBookings(prev => prev.map(b => b.id === booking.id ? { ...b, status } : b));
@@ -1151,6 +1296,19 @@ function ProviderDashboard({ provider: initialProvider, onLogout }) {
     setBookings(prev => prev.map(b => b.id === booking.id ? { ...b, provider_notified: true } : b));
     const { error } = await supabase.from("bookings").update({ provider_notified: true }).eq("id", booking.id);
     if (error) { console.error(error); loadBookings(); }
+  };
+
+  const [cancelling, setCancelling] = useState(null);
+  const [cancelSaving, setCancelSaving] = useState(false);
+  const confirmProviderCancel = async (reason) => {
+    setCancelSaving(true);
+    const booking = cancelling;
+    setBookings(prev => prev.map(b => b.id === booking.id ? { ...b, status: "cancelled", cancel_reason: reason, cancelled_by: "provider" } : b));
+    const { error } = await supabase.from("bookings").update({ status: "cancelled", cancel_reason: reason, cancelled_by: "provider" }).eq("id", booking.id);
+    if (!error && booking.availability_id) await supabase.from("availability").update({ status: "free" }).eq("id", booking.availability_id);
+    if (error) { console.error(error); loadBookings(); }
+    setCancelSaving(false);
+    setCancelling(null);
   };
 
   const toggleAvailable = async () => {
@@ -1289,12 +1447,17 @@ function ProviderDashboard({ provider: initialProvider, onLogout }) {
                     <span className="flex items-center gap-1"><Calendar size={12}/>{b.day}</span>
                     <span className="flex items-center gap-1"><Clock size={12}/>{b.time}</span>
                   </div>
+                  <button onClick={()=>setCancelling(b)} className="mt-3 w-full py-2 rounded-xl border border-[#EDE3E0] text-[#B5566B] text-xs font-medium">Откажи термин</button>
                 </div>
               ))}
             </div>
           )
         )}
       </div>
+
+      {cancelling && (
+        <CancelReasonModal booking={cancelling} saving={cancelSaving} onConfirm={confirmProviderCancel} onClose={()=>setCancelling(null)} />
+      )}
     </div>
   );
 }
@@ -1331,13 +1494,15 @@ function ClientFlow({ onBack }) {
 
 // ---------------- Root ----------------
 export default function App() {
-  const [role, setRole] = useState(null);
+  const [role, setRole] = useState(() => localStorage.getItem("termin-role") || null);
+  const pick = (r) => { localStorage.setItem("termin-role", r); setRole(r); };
+  const clearRole = () => { localStorage.removeItem("termin-role"); setRole(null); };
   return (
     <div className="w-full min-h-screen bg-[#FDF9F7] flex justify-center">
       <div className="w-full max-w-sm min-h-screen bg-[#FDF9F7] relative">
-        {!role && <RoleSelect onPick={setRole} />}
-        {role === "client" && <ClientFlow onBack={()=>setRole(null)} />}
-        {role === "provider" && <ProviderFlow onBack={()=>setRole(null)} />}
+        {!role && <RoleSelect onPick={pick} />}
+        {role === "client" && <ClientFlow onBack={clearRole} />}
+        {role === "provider" && <ProviderFlow onBack={clearRole} />}
       </div>
     </div>
   );

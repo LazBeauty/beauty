@@ -1474,7 +1474,7 @@ function ProviderFlow({ onBack }) {
 
   if (checking) return <div className="min-h-full bg-[#FDF9F7] flex flex-col"><Spinner /></div>;
   if (!provider) return <ProviderAuth onLoggedIn={setProvider} />;
-  return <ProviderDashboard provider={provider} onLogout={() => { localStorage.removeItem("termin-provider-id"); onBack(); }} />;
+  return <ProviderDashboard provider={provider} onLogout={() => { localStorage.removeItem("termin-provider-id"); localStorage.removeItem("termin-provider-tab"); onBack(); }} />;
 }
 
 function ClientFlow({ onBack }) {
@@ -1489,7 +1489,7 @@ function ClientFlow({ onBack }) {
 
   if (checking) return <div className="min-h-full bg-[#FDF9F7] flex flex-col"><Spinner /></div>;
   if (!client) return <ClientAuth onLoggedIn={setClient} />;
-  return <ClientHome client={client} onHome={onBack} onLogout={() => { localStorage.removeItem("termin-client-id"); onBack(); }} />;
+  return <ClientHome client={client} onHome={onBack} onLogout={() => { localStorage.removeItem("termin-client-id"); localStorage.removeItem("termin-client-view"); onBack(); }} />;
 }
 
 // ---------------- Root ----------------

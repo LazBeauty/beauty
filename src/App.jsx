@@ -236,7 +236,7 @@ function Divider() {
 }
 const googleSignIn = () => supabase.auth.signInWithOAuth({ provider: "google", options: { redirectTo: window.location.origin } });
 
-function ClientAuth({ onBack }) {
+function ClientAuth({ onBack, onSignedUp }) {
   const [mode, setMode] = useState("choose"); // choose | login | signup | forgot | reset
   const [avatarUrl, setAvatarUrl] = useState(null);
   const [firstName, setFirstName] = useState("");
@@ -327,7 +327,9 @@ function ClientAuth({ onBack }) {
       return;
     }
 
-    // ClientFlow ќе ја преземе сесијата преку onAuthStateChange и веднаш ќе продолжи во апликацијата.
+    // Го предаваме новосоздадениот профил директно на ClientFlow — не чекаме повторен fetch
+    // (тој може да „удри“ во базата пред insert-от горе физички да заврши).
+    onSignedUp?.(client);
   };
 
   if (mode === "choose") {
@@ -417,43 +419,6 @@ function ClientAuth({ onBack }) {
         </button>
         {/* Google-најава е привремено исклучена — најава/регистрација само со е-пошта и лозинка.
         <GoogleButton onClick={googleSignIn} /> */}
-      </div>
-    </div>
-  );
-}
-
-function CompleteClientProfile({ session, onDone, onBack }) {
-  const meta = session.user.user_metadata || {};
-  const [avatarUrl, setAvatarUrl] = useState(meta.avatar_url || null);
-  const [name, setName] = useState(meta.full_name || meta.name || "");
-  const [phone, setPhone] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  const save = async () => {
-    if (!name.trim() || !phone.trim()) { setError("Пополни ги сите полиња."); return; }
-    setLoading(true);
-    const { data, error: err } = await supabase.from("clients").insert({
-      auth_user_id: session.user.id, name: name.trim(), phone: phone.trim(), email: session.user.email, avatar_url: avatarUrl,
-    }).select().single();
-    setLoading(false);
-    if (err) { console.error(err); setError("Настана грешка, обиди се повторно."); return; }
-    onDone(data);
-  };
-
-  return (
-    <div className="min-h-full bg-[#FDF9F7] flex flex-col px-6 pt-10 pb-8">
-      <button onClick={()=>{ supabase.auth.signOut(); onBack(); }} className="text-[#8B7A8E] flex items-center gap-1 text-sm mb-6"><ChevronLeft size={16}/>Назад</button>
-      <h1 className="font-serif text-[#2B1B2E] text-2xl mb-1" style={{ fontWeight: 600 }}>Уште малку...</h1>
-      <p className="text-[#8B7A8E] text-sm mb-5">Дополни го профилот за да продолжиш.</p>
-      <AvatarPicker url={avatarUrl} onChange={setAvatarUrl} />
-      <div className="mt-5 flex flex-col gap-3">
-        <TextField value={name} onChange={e=>setName(e.target.value)} placeholder="Име и презиме" />
-        <TextField value={phone} onChange={e=>setPhone(e.target.value)} placeholder="Телефон" />
-        {error && <p className="text-[#B5566B] text-xs">{error}</p>}
-        <button disabled={loading} onClick={save} className="mt-2 bg-[#B5566B] text-white rounded-xl py-3.5 text-sm font-medium flex items-center justify-center gap-2">
-          {loading && <Loader2 size={15} className="animate-spin" />} Готово
-        </button>
       </div>
     </div>
   );
@@ -1043,7 +1008,7 @@ function BookingDetail({ provider, client, onBack, onConfirm, preselectCategory,
 }
 
 // ---------------- Provider auth ----------------
-function ProviderAuth({ onBack }) {
+function ProviderAuth({ onBack, onSignedUp }) {
   const [mode, setMode] = useState("choose"); // choose | login | signup | forgot | reset
   const [avatarUrl, setAvatarUrl] = useState(null);
   const [firstName, setFirstName] = useState("");
@@ -1145,7 +1110,9 @@ function ProviderAuth({ onBack }) {
       return;
     }
 
-    // ProviderFlow ќе го најде профилот преку auth_user_id (onAuthStateChange) и веднаш продолжува.
+    // Го предаваме новосоздадениот профил директно на ProviderFlow — не чекаме повторен fetch
+    // (тој може да „удри“ во базата пред insert-от горе физички да заврши).
+    onSignedUp?.(provider);
   };
 
   if (mode === "choose") {
@@ -1239,54 +1206,6 @@ function ProviderAuth({ onBack }) {
         </button>
         {/* Google-најава е привремено исклучена — најава/регистрација само со е-пошта и лозинка.
         <GoogleButton onClick={googleSignIn} /> */}
-      </div>
-    </div>
-  );
-}
-
-function CompleteProviderProfile({ session, onDone, onBack }) {
-  const meta = session.user.user_metadata || {};
-  const [avatarUrl, setAvatarUrl] = useState(meta.avatar_url || null);
-  const [name, setName] = useState(meta.full_name || meta.name || "");
-  const [salon, setSalon] = useState("");
-  const [city, setCity] = useState("");
-  const [address, setAddress] = useState("");
-  const [phone, setPhone] = useState("");
-  const [bio, setBio] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  const save = async () => {
-    if (!name.trim() || !salon.trim() || !city.trim() || !phone.trim()) { setError("Пополни ги задолжителните полиња."); return; }
-    setLoading(true);
-    const { data, error: err } = await supabase.from("providers").insert({
-      auth_user_id: session.user.id, name: name.trim(), salon: salon.trim(), city: city.trim(),
-      address: address.trim() || null, phone: phone.trim(), email: session.user.email, bio: bio.trim() || null,
-      services: [], rating: 5.0, available: true, avatar_url: avatarUrl,
-    }).select().single();
-    setLoading(false);
-    if (err) { console.error(err); setError("Настана грешка, обиди се повторно."); return; }
-    onDone(data);
-  };
-
-  return (
-    <div className="min-h-full bg-[#FDF9F7] flex flex-col px-6 pt-10 pb-8">
-      <button onClick={()=>{ supabase.auth.signOut(); onBack(); }} className="text-[#8B7A8E] flex items-center gap-1 text-sm mb-6"><ChevronLeft size={16}/>Назад</button>
-      <h1 className="font-serif text-[#2B1B2E] text-2xl mb-1" style={{ fontWeight: 600 }}>Уште малку...</h1>
-      <p className="text-[#8B7A8E] text-sm mb-5">Дополни го профилот за да продолжиш.</p>
-      <AvatarPicker url={avatarUrl} onChange={setAvatarUrl} />
-      <div className="mt-5 flex flex-col gap-3">
-        <TextField value={name} onChange={e=>setName(e.target.value)} placeholder="Име и презиме" />
-        <TextField value={salon} onChange={e=>setSalon(e.target.value)} placeholder="Име на салон/бренд" />
-        <CityCombobox value={city} onChange={setCity} placeholder="Град" />
-        <TextField value={address} onChange={e=>setAddress(e.target.value)} placeholder="Адреса (точна локација)" />
-        <TextField value={phone} onChange={e=>setPhone(e.target.value)} placeholder="Телефон" />
-        <textarea value={bio} onChange={e=>setBio(e.target.value)} placeholder="Кратко за тебе (опционално)" rows={3}
-          className="bg-white border border-[#EDE3E0] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#B5566B] resize-none" />
-        {error && <p className="text-[#B5566B] text-xs">{error}</p>}
-        <button disabled={loading} onClick={save} className="mt-2 bg-[#B5566B] text-white rounded-xl py-3.5 text-sm font-medium flex items-center justify-center gap-2">
-          {loading && <Loader2 size={15} className="animate-spin" />} Готово
-        </button>
       </div>
     </div>
   );
@@ -1849,7 +1768,9 @@ function ProviderFlow({ onBack }) {
     if (!session) { setProvider(null); setCheckingProfile(false); return; }
     setCheckingProfile(true);
     supabase.from("providers").select("*").eq("auth_user_id", session.user.id).maybeSingle()
-      .then(({ data }) => { setProvider(data); setCheckingProfile(false); });
+      // "prev" заштита: ако fetch-от помине пред insert-от при регистрација физички да заврши
+      // (или ако меѓувреме onSignedUp веќе го поставил профилот), не го бришеме со null.
+      .then(({ data }) => { setProvider(prev => data || prev); setCheckingProfile(false); });
   }, [session]);
 
   const logout = async () => {
@@ -1859,8 +1780,17 @@ function ProviderFlow({ onBack }) {
   };
 
   if (session === undefined || checkingProfile) return <div className="min-h-full bg-[#FDF9F7] flex flex-col"><Spinner /></div>;
-  if (!session) return <ProviderAuth onBack={onBack} />;
-  if (!provider) return <CompleteProviderProfile session={session} onDone={setProvider} onBack={onBack} />;
+  if (!session) return <ProviderAuth onBack={onBack} onSignedUp={setProvider} />;
+  if (!provider) {
+    // Ова не треба да се случи во нормален тек — профилот се создава веднаш при регистрација.
+    // Ако сепак недостасува (пр. прекинат insert), враќаме на најава наместо на посебен чекор.
+    return (
+      <div className="min-h-full bg-[#FDF9F7] flex flex-col px-6 pt-10 pb-8 items-center text-center">
+        <p className="text-[#8B7A8E] text-sm">Не успеавме да го најдеме твојот профил.</p>
+        <button onClick={async ()=>{ await supabase.auth.signOut(); onBack(); }} className="mt-4 text-[#B5566B] text-sm font-medium">Обиди се повторно</button>
+      </div>
+    );
+  }
   return <ProviderDashboard provider={provider} onLogout={logout} />;
 }
 
@@ -1880,7 +1810,9 @@ function ClientFlow({ onBack }) {
     if (!session) { setClient(null); setCheckingProfile(false); return; }
     setCheckingProfile(true);
     supabase.from("clients").select("*").eq("auth_user_id", session.user.id).maybeSingle()
-      .then(({ data }) => { setClient(data); setCheckingProfile(false); });
+      // "prev" заштита: ако fetch-от помине пред insert-от при регистрација физички да заврши
+      // (или ако меѓувреме onSignedUp веќе го поставил профилот), не го бришеме со null.
+      .then(({ data }) => { setClient(prev => data || prev); setCheckingProfile(false); });
   }, [session]);
 
   const logout = async () => {
@@ -1890,8 +1822,17 @@ function ClientFlow({ onBack }) {
   };
 
   if (session === undefined || checkingProfile) return <div className="min-h-full bg-[#FDF9F7] flex flex-col"><Spinner /></div>;
-  if (!session) return <ClientAuth onBack={onBack} />;
-  if (!client) return <CompleteClientProfile session={session} onDone={setClient} onBack={onBack} />;
+  if (!session) return <ClientAuth onBack={onBack} onSignedUp={setClient} />;
+  if (!client) {
+    // Ова не треба да се случи во нормален тек — профилот се создава веднаш при регистрација.
+    // Ако сепак недостасува (пр. прекинат insert), враќаме на најава наместо на посебен чекор.
+    return (
+      <div className="min-h-full bg-[#FDF9F7] flex flex-col px-6 pt-10 pb-8 items-center text-center">
+        <p className="text-[#8B7A8E] text-sm">Не успеавме да го најдеме твојот профил.</p>
+        <button onClick={async ()=>{ await supabase.auth.signOut(); onBack(); }} className="mt-4 text-[#B5566B] text-sm font-medium">Обиди се повторно</button>
+      </div>
+    );
+  }
   return <ClientHome client={client} onHome={onBack} onLogout={logout} />;
 }
 

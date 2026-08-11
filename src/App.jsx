@@ -293,8 +293,9 @@ function ClientAuth({ onBack }) {
 
     const { data, error: err } = await supabase.auth.signUp({ email: email.trim(), password });
     if (err) {
+      console.error("SIGNUP ERROR:", err);
       setLoading(false);
-      setError(err.message.includes("already") ? "Веќе постои профил со таа е-пошта." : "Настана грешка, обиди се повторно.");
+      setError(err.message.includes("already") ? "Веќе постои профил со таа е-пошта." : `Грешка: ${err.message}`);
       return;
     }
 
@@ -1103,8 +1104,9 @@ function ProviderAuth({ onBack }) {
 
     const { data, error: err } = await supabase.auth.signUp({ email: email.trim(), password });
     if (err) {
+      console.error("SIGNUP ERROR:", err);
       setLoading(false);
-      setError(err.message.includes("already") ? "Веќе постои профил со таа е-пошта." : "Настана грешка, обиди се повторно.");
+      setError(err.message.includes("already") ? "Веќе постои профил со таа е-пошта." : `Грешка: ${err.message}`);
       return;
     }
 

@@ -1,10 +1,10 @@
-<Route path="/reset-password" element={<ResetPassword />} />
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   Scissors, MapPin, Search, Star, Calendar, Clock, Check, X,
   ChevronLeft, Sparkles, Bell, Loader2, Plus, Trash2, Pencil, User, Home, Phone, Info
 } from "lucide-react";
 import { supabase } from "./lib/supabase";
+import ResetPassword from "./ResetPassword";
 
 const CITIES = [
   "Скопје","Куманово","Битола","Прилеп","Тетово","Велес","Штип","Охрид","Гостивар","Струмица",
@@ -229,7 +229,7 @@ function ForgotPassword({ onBack }) {
     setError("");
     if (!email.trim()) { setError("Внеси ја е-поштата."); return; }
     setLoading(true);
-    const { error: err } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: 'https://lazbeauty.github.io/beauty/reset-password' }); //{ redirectTo: window.location.origin });
+    const { error: err } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: 'https://lazbeauty.github.io/beauty/' }); //{ redirectTo: window.location.origin });
     setLoading(false);
     if (err) { setError("Настана грешка, обиди се повторно."); return; }
     setSent(true);

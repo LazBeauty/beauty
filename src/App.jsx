@@ -4,7 +4,6 @@ import {
   ChevronLeft, Sparkles, Bell, Loader2, Plus, Trash2, Pencil, User, Home, Phone, Info
 } from "lucide-react";
 import { supabase } from "./lib/supabase";
-import ResetPassword from "./ResetPassword";
 
 const CITIES = [
   "Скопје","Куманово","Битола","Прилеп","Тетово","Велес","Штип","Охрид","Гостивар","Струмица",

@@ -282,30 +282,77 @@ function ClientAuth({ onBack }) {
     if (err) setError("Погрешна е-пошта или лозинка.");
   };
 
-  const signup = async () => {
-    setError("");
-    if (!firstName.trim() || !lastName.trim() || !phone.trim() || !email.trim()) { setError("Пополни ги сите полиња."); return; }
-    if (password.length < 6) { setError("Лозинката мора да има барем 6 карактери."); return; }
-    if (password !== confirmPassword) { setError("Лозинките не се совпаѓаат."); return; }
-    setLoading(true);
-    const { data, error: err } = await supabase.auth.signUp({ email: email.trim(), password, options: { emailRedirectTo: window.location.origin } });
-    if (err) { setLoading(false); setError(err.message.includes("already") ? "Веќе постои профил со таа е-пошта." : "Настана грешка, обиди се повторно."); return; }
+ const signup = async () => {
+  setError("");
 
-    if (data.session && data.user) {
-      // Потврдата на е-пошта е исклучена во проектот -> сесијата е веднаш активна
-      const { error: insErr } = await supabase.from("clients").insert({
-        auth_user_id: data.user.id, name: `${firstName.trim()} ${lastName.trim()}`, phone: phone.trim(), email: email.trim(), avatar_url: avatarUrl,
-      });
-      setLoading(false);
-      if (insErr) { console.error(insErr); setError("Настана грешка при креирање на профилот."); return; }
-      // ClientFlow ќе ја преземе сесијата преку onAuthStateChange
-    } else {
-      // Потврдата на е-пошта е вклучена -> треба да кликне на линкот во мејлот
-      setLoading(false);
-      setMode("checkEmail");
-    }
-  };
+  if (!firstName.trim() || !lastName.trim() || !phone.trim() || !email.trim()) {
+    setError("Пополни ги сите полиња.");
+    return;
+  }
 
+  if (password.length < 6) {
+    setError("Лозинката мора да има барем 6 карактери.");
+    return;
+  }
+
+  if (password !== confirmPassword) {
+    setError("Лозинките не се совпаѓаат.");
+    return;
+  }
+
+  setLoading(true);
+
+  const { data, error: err } = await supabase.auth.signUp({
+    email: email.trim(),
+    password,
+    options: {
+      data: {
+        full_name: `${firstName.trim()} ${lastName.trim()}`,
+        phone: phone.trim(),
+        avatar_url: avatarUrl,
+      },
+    },
+  });
+
+  if (err) {
+    setLoading(false);
+    setError(
+      err.message.includes("already")
+        ? "Веќе постои профил со таа е-пошта."
+        : "Настана грешка, обиди се повторно."
+    );
+    return;
+  }
+
+  if (!data.user) {
+    setLoading(false);
+    setError("Неуспешно креирање на профилот.");
+    return;
+  }
+
+  const { data: client, error: insErr } = await supabase
+    .from("clients")
+    .insert({
+      auth_user_id: data.user.id,
+      name: `${firstName.trim()} ${lastName.trim()}`,
+      phone: phone.trim(),
+      email: email.trim(),
+      avatar_url: avatarUrl,
+    })
+    .select()
+    .single();
+
+  setLoading(false);
+
+  if (insErr) {
+    console.error(insErr);
+    setError("Профилот е креиран, но настана грешка при зачувување на податоците.");
+    return;
+  }
+
+  // Ако Supabase автоматски ја креира сесијата,
+  // корисникот веднаш продолжува во апликацијата.
+};
   if (mode === "choose") {
     return (
       <div className="min-h-full bg-[#FDF9F7] flex flex-col px-6 pt-10 pb-8 items-center text-center">
@@ -1012,28 +1059,90 @@ function ProviderAuth({ onBack }) {
     if (err) setError("Погрешна е-пошта или лозинка.");
   };
 
-  const signup = async () => {
-    setError("");
-    if (!firstName.trim() || !lastName.trim() || !salon.trim() || !city.trim() || !phone.trim() || !email.trim()) { setError("Пополни ги сите задолжителни полиња."); return; }
-    if (password.length < 6) { setError("Лозинката мора да има барем 6 карактери."); return; }
-    if (password !== confirmPassword) { setError("Лозинките не се совпаѓаат."); return; }
-    setLoading(true);
-    const { data, error: err } = await supabase.auth.signUp({ email: email.trim(), password, options: { emailRedirectTo: window.location.origin } });
-    if (err) { setLoading(false); setError(err.message.includes("already") ? "Веќе постои профил со таа е-пошта." : "Настана грешка, обиди се повторно."); return; }
+const signup = async () => {
+  setError("");
 
-    if (data.session && data.user) {
-      const { error: insErr } = await supabase.from("providers").insert({
-        auth_user_id: data.user.id, name: `${firstName.trim()} ${lastName.trim()}`, salon: salon.trim(), city: city.trim(),
-        address: address.trim() || null, phone: phone.trim(), email: email.trim(), bio: bio.trim() || null,
-        services: [], rating: 5.0, available: true, avatar_url: avatarUrl,
-      });
-      setLoading(false);
-      if (insErr) { console.error(insErr); setError("Настана грешка при креирање на профилот."); return; }
-    } else {
-      setLoading(false);
-      setMode("checkEmail");
-    }
-  };
+  if (
+    !firstName.trim() ||
+    !lastName.trim() ||
+    !salon.trim() ||
+    !city.trim() ||
+    !phone.trim() ||
+    !email.trim()
+  ) {
+    setError("Пополни ги сите задолжителни полиња.");
+    return;
+  }
+
+  if (password.length < 6) {
+    setError("Лозинката мора да има барем 6 карактери.");
+    return;
+  }
+
+  if (password !== confirmPassword) {
+    setError("Лозинките не се совпаѓаат.");
+    return;
+  }
+
+  setLoading(true);
+
+  const { data, error: err } = await supabase.auth.signUp({
+    email: email.trim(),
+    password,
+    options: {
+      data: {
+        full_name: `${firstName.trim()} ${lastName.trim()}`,
+        phone: phone.trim(),
+        avatar_url: avatarUrl,
+      },
+    },
+  });
+
+  if (err) {
+    setLoading(false);
+    setError(
+      err.message.includes("already")
+        ? "Веќе постои профил со таа е-пошта."
+        : "Настана грешка, обиди се повторно."
+    );
+    return;
+  }
+
+  if (!data.user) {
+    setLoading(false);
+    setError("Неуспешно креирање на профилот.");
+    return;
+  }
+
+  const { data: provider, error: insErr } = await supabase
+    .from("providers")
+    .insert({
+      auth_user_id: data.user.id,
+      name: `${firstName.trim()} ${lastName.trim()}`,
+      salon: salon.trim(),
+      city: city.trim(),
+      address: address.trim() || null,
+      phone: phone.trim(),
+      email: email.trim(),
+      bio: bio.trim() || null,
+      services: [],
+      rating: 5.0,
+      available: true,
+      avatar_url: avatarUrl,
+    })
+    .select()
+    .single();
+
+  setLoading(false);
+
+  if (insErr) {
+    console.error(insErr);
+    setError("Профилот е креиран, но настана грешка при зачувување на податоците.");
+    return;
+  }
+
+  // Корисникот продолжува директно во апликацијата.
+};
 
   if (mode === "choose") {
     return (

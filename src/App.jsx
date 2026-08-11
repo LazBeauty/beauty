@@ -229,7 +229,7 @@ function ForgotPassword({ onBack }) {
     setError("");
     if (!email.trim()) { setError("Внеси ја е-поштата."); return; }
     setLoading(true);
-    const { error: err } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: 'https://lazbeauty.github.io/beuty/reset-password' }); //{ redirectTo: window.location.origin });
+    const { error: err } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: 'https://lazbeauty.github.io/beauty/reset-password' }); //{ redirectTo: window.location.origin });
     setLoading(false);
     if (err) { setError("Настана грешка, обиди се повторно."); return; }
     setSent(true);

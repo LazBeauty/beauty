@@ -389,7 +389,7 @@ function CompleteClientProfile({ session, onDone, onBack }) {
     if (err) { console.error(err); setError("Настана грешка, обиди се повторно."); return; }
     onDone(data);
   };
-
+/*
   return (
     <div className="min-h-full bg-[#FDF9F7] flex flex-col px-6 pt-10 pb-8">
       <button onClick={()=>{ supabase.auth.signOut(); onBack(); }} className="text-[#8B7A8E] flex items-center gap-1 text-sm mb-6"><ChevronLeft size={16}/>Назад</button>
@@ -405,7 +405,7 @@ function CompleteClientProfile({ session, onDone, onBack }) {
         </button>
       </div>
     </div>
-  );
+  );*/
 }
 
 function ChangePassword() {
@@ -1128,7 +1128,7 @@ function CompleteProviderProfile({ session, onDone, onBack }) {
     if (err) { console.error(err); setError("Настана грешка, обиди се повторно."); return; }
     onDone(data);
   };
-
+/*
   return (
     <div className="min-h-full bg-[#FDF9F7] flex flex-col px-6 pt-10 pb-8">
       <button onClick={()=>{ supabase.auth.signOut(); onBack(); }} className="text-[#8B7A8E] flex items-center gap-1 text-sm mb-6"><ChevronLeft size={16}/>Назад</button>
@@ -1150,6 +1150,7 @@ function CompleteProviderProfile({ session, onDone, onBack }) {
       </div>
     </div>
   );
+  */
 }
 
 function ProviderProfile({ provider, onSaved, onLogout }) {

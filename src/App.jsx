@@ -218,321 +218,207 @@ function RoleSelect({ onPick }) {
 }
 
 // ---------------- Client auth ----------------
-function ForgotPassword({ onBack }) {
-  const [email, setEmail] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [sent, setSent] = useState(false);
-  const [error, setError] = useState("");
-
-  const send = async () => {
-    setError("");
-    if (!email.trim()) { setError("Внеси ја е-поштата."); return; }
-    setLoading(true);
-    const { error: err } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: 'https://lazbeauty.github.io/beauty/' }); //{ redirectTo: window.location.origin });
-    setLoading(false);
-    if (err) { setError("Настана грешка, обиди се повторно."); return; }
-    setSent(true);
-  };
-
-  if (sent) {
-    return (
-      <div className="min-h-full bg-[#FDF9F7] flex flex-col px-6 pt-10 pb-8 items-center text-center">
-        <div className="w-16 h-16 rounded-full bg-[#DCE6DE] flex items-center justify-center mb-5">
-          <Check size={28} className="text-[#4A6B54]" />
-        </div>
-        <h2 className="font-serif text-[#2B1B2E] text-xl" style={{ fontWeight: 600 }}>Проверi ja е-поштата</h2>
-        <p className="text-[#8B7A8E] text-sm mt-2">Ти испративме линк на {email} за да ја смениш лозинката.</p>
-        <button onClick={onBack} className="mt-8 text-[#B5566B] text-sm font-medium">Назад кон најава</button>
-      </div>
-    );
-  }
-
+function GoogleButton({ onClick, disabled }) {
   return (
-    <div className="min-h-full bg-[#FDF9F7] flex flex-col px-6 pt-10 pb-8">
-      <button onClick={onBack} className="text-[#8B7A8E] flex items-center gap-1 text-sm mb-6"><ChevronLeft size={16}/>Назад</button>
-      <h1 className="font-serif text-[#2B1B2E] text-2xl" style={{ fontWeight: 600 }}>Заборавена лозинка</h1>
-      <p className="text-[#8B7A8E] text-sm mt-2">Внеси ја е-поштата и ќе ти испратиме линк за нова лозинка.</p>
-      <div className="mt-6 flex flex-col gap-3">
-        <TextField value={email} onChange={e=>setEmail(e.target.value)} placeholder="Е-пошта" type="email" />
-        {error && <p className="text-[#B5566B] text-xs">{error}</p>}
-        <button disabled={loading} onClick={send} className="mt-1 bg-[#B5566B] text-white rounded-xl py-3.5 text-sm font-medium flex items-center justify-center gap-2">
-          {loading && <Loader2 size={15} className="animate-spin" />} Испрати линк
-        </button>
-      </div>
+    <button type="button" disabled={disabled} onClick={onClick}
+      className="w-full flex items-center justify-center gap-2 bg-white border border-[#EDE3E0] text-[#2B1B2E] rounded-xl py-3.5 text-sm font-medium disabled:opacity-50">
+      <svg width="16" height="16" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.9 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 3l6-6C34.5 5.1 29.5 3 24 3 12.4 3 3 12.4 3 24s9.4 21 21 21 21-9.4 21-21c0-1.3-.1-2.7-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.5 15.9 18.9 13 24 13c3.1 0 5.8 1.1 8 3l6-6C34.5 5.1 29.5 3 24 3c-7.5 0-14 4.1-17.7 10.2z"/><path fill="#4CAF50" d="M24 45c5.4 0 10.3-1.8 14.1-4.9l-6.5-5.5C29.5 36.4 26.9 37 24 37c-5.3 0-9.7-3.1-11.3-7.8l-6.5 5C9.9 40.9 16.4 45 24 45z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.2 5.6l6.5 5.5C41 35.9 44 30.4 44 24c0-1.3-.1-2.7-.4-3.5z"/></svg>
+      Продолжи со Google
+    </button>
+  );
+}
+function Divider() {
+  return (
+    <div className="flex items-center gap-3 my-1">
+      <div className="flex-1 h-px bg-[#EDE3E0]" /><span className="text-[#B3A5B5] text-xs">или</span><div className="flex-1 h-px bg-[#EDE3E0]" />
     </div>
   );
 }
+const googleSignIn = () => supabase.auth.signInWithOAuth({ provider: "google", options: { redirectTo: window.location.origin } });
 
 function ClientAuth({ onBack }) {
-  const [mode, setMode] = useState("choose");
-
+  const [mode, setMode] = useState("choose"); // choose | login | signup | forgot | reset
+  const [avatarUrl, setAvatarUrl] = useState(null);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [avatarUrl, setAvatarUrl] = useState(null);
-
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetCode, setResetCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
+
   const login = async () => {
-    setError("");
-    setLoading(true);
-
-    const { error: err } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
-    });
-
+    setError(""); setLoading(true);
+    const { error: err } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     setLoading(false);
+    if (err) setError("Погрешна е-пошта или лозинка.");
+  };
 
-    if (err) {
-      setError("Погрешна е-пошта или лозинка.");
-    }
+  const sendResetCode = async () => {
+    setError("");
+    if (!resetEmail.trim()) { setError("Внеси ја е-поштата."); return; }
+    setLoading(true);
+    const { error: err } = await supabase.auth.resetPasswordForEmail(resetEmail.trim());
+    setLoading(false);
+    if (err) { setError("Настана грешка, обиди се повторно."); return; }
+    setMode("reset");
+  };
+
+  const confirmReset = async () => {
+    setError("");
+    if (resetCode.trim().length !== 8) { setError("Внеси го целиот код од 8 бројки."); return; }
+    if (newPassword.length < 6) { setError("Лозинката мора да има барем 6 карактери."); return; }
+    if (newPassword !== confirmNewPassword) { setError("Лозинките не се совпаѓаат."); return; }
+    setLoading(true);
+    const { error: verErr } = await supabase.auth.verifyOtp({ email: resetEmail.trim(), token: resetCode.trim(), type: "recovery" });
+    if (verErr) { setLoading(false); setError("Погрешен или истечен код."); return; }
+    const { error: updErr } = await supabase.auth.updateUser({ password: newPassword });
+    setLoading(false);
+    if (updErr) { setError("Настана грешка при менувањето на лозинката."); return; }
+    // Сесијата е веќе активна — ClientFlow автоматски продолжува понатаму.
   };
 
   const signup = async () => {
     setError("");
-
-    if (
-      !firstName.trim() ||
-      !lastName.trim() ||
-      !phone.trim() ||
-      !email.trim()
-    ) {
-      setError("Пополни ги сите задолжителни полиња.");
-      return;
-    }
-
-    if (password.length < 6) {
-      setError("Лозинката мора да има барем 6 карактери.");
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      setError("Лозинките не се совпаѓаат.");
-      return;
-    }
-
+    if (!firstName.trim() || !lastName.trim() || !phone.trim() || !email.trim()) { setError("Пополни ги сите полиња."); return; }
+    if (password.length < 6) { setError("Лозинката мора да има барем 6 карактери."); return; }
+    if (password !== confirmPassword) { setError("Лозинките не се совпаѓаат."); return; }
     setLoading(true);
 
-    const { data, error: err } = await supabase.auth.signUp({
-      email: email.trim(),
-      password,
-      options: {
-        data: {
-          full_name: `${firstName.trim()} ${lastName.trim()}`,
-          phone: phone.trim(),
-          avatar_url: avatarUrl,
-        },
-      },
-    });
+    const { data, error: err } = await supabase.auth.signUp({ email: email.trim(), password });
+    if (err) {
+      setLoading(false);
+      setError(err.message.includes("already") ? "Веќе постои профил со таа е-пошта." : "Настана грешка, обиди се повторно.");
+      return;
+    }
+
+    // Ако е-поштата бара потврда (сеуште вклучено во Supabase), нема активна сесија —
+    // во тој случај корисникот треба прво да ја потврди е-поштата пред да продолжи.
+    if (!data.session) {
+      setLoading(false);
+      setError("Профилот е креиран, но е-поштата бара потврда пред најава. Провери го инбоксот, или исклучи ја потврдата на е-пошта во Supabase поставките.");
+      return;
+    }
+
+    const { data: client, error: insErr } = await supabase
+      .from("clients")
+      .insert({
+        auth_user_id: data.user.id,
+        name: `${firstName.trim()} ${lastName.trim()}`,
+        phone: phone.trim(),
+        email: email.trim(),
+        avatar_url: avatarUrl,
+      })
+      .select()
+      .single();
 
     setLoading(false);
 
-    if (err) {
-      console.error(err);
-
-      if (
-        err.message.toLowerCase().includes("already") ||
-        err.message.toLowerCase().includes("registered")
-      ) {
-        setError("Веќе постои профил со таа е-пошта.");
-      } else {
-        setError(err.message);
-      }
-
+    if (insErr) {
+      console.error("CLIENT INSERT ERROR:", insErr);
+      setError("Настана грешка при креирање на профилот.");
       return;
     }
 
-    if (!data.user) {
-      setError("Неуспешно креирање на профилот.");
-      return;
-    }
-
-    // Не правиме insert во clients тука.
-    // ClientFlow ќе ја земе session и ќе го креира профилот.
+    // ClientFlow ќе ја преземе сесијата преку onAuthStateChange и веднаш ќе продолжи во апликацијата.
   };
 
   if (mode === "choose") {
     return (
       <div className="min-h-full bg-[#FDF9F7] flex flex-col px-6 pt-10 pb-8 items-center text-center">
-        <button
-          onClick={onBack}
-          className="self-start text-[#8B7A8E] flex items-center gap-1 text-sm mb-6"
-        >
-          <ChevronLeft size={16} />
-          Назад
-        </button>
-
+        <button onClick={onBack} className="self-start text-[#8B7A8E] flex items-center gap-1 text-sm mb-6"><ChevronLeft size={16}/>Назад</button>
         <Logo size={26} />
-
-        <h1
-          className="font-serif text-[#2B1B2E] text-2xl mt-8"
-          style={{ fontWeight: 600 }}
-        >
-          Профил за клиент
-        </h1>
-
+        <h1 className="font-serif text-[#2B1B2E] text-2xl mt-8" style={{ fontWeight: 600 }}>Твојот профил</h1>
+        <p className="text-[#8B7A8E] text-sm mt-2">За да закажуваш и да ги гледаш твоите термини.</p>
         <div className="mt-8 w-full flex flex-col gap-3">
-          <button
-            onClick={() => setMode("signup")}
-            className="w-full bg-[#B5566B] text-white rounded-xl py-3.5 text-sm font-medium"
-          >
-            Направи нов профил
-          </button>
-
-          <button
-            onClick={() => setMode("login")}
-            className="w-full bg-white border border-[#EDE3E0] text-[#2B1B2E] rounded-xl py-3.5 text-sm font-medium"
-          >
-            Најави се на постоечки
-          </button>
+          <button onClick={()=>setMode("signup")} className="w-full bg-[#B5566B] text-white rounded-xl py-3.5 text-sm font-medium">Направи нов профил</button>
+          <button onClick={()=>setMode("login")} className="w-full bg-white border border-[#EDE3E0] text-[#2B1B2E] rounded-xl py-3.5 text-sm font-medium">Најави се на постоечки</button>
+          {/* Google-најава е привремено исклучена — најава/регистрација само со е-пошта и лозинка.
+          <GoogleButton onClick={googleSignIn} /> */}
         </div>
       </div>
     );
   }
-
   if (mode === "login") {
     return (
       <div className="min-h-full bg-[#FDF9F7] flex flex-col px-6 pt-10 pb-8">
-        <button
-          onClick={() => setMode("choose")}
-          className="text-[#8B7A8E] flex items-center gap-1 text-sm mb-6"
-        >
-          <ChevronLeft size={16} />
-          Назад
-        </button>
-
-        <h1
-          className="font-serif text-[#2B1B2E] text-2xl mb-5"
-          style={{ fontWeight: 600 }}
-        >
-          Најава
-        </h1>
-
-        <div className="flex flex-col gap-3">
-          <TextField
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            placeholder="Е-пошта"
-            type="email"
-          />
-
-          <TextField
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            placeholder="Лозинка"
-            type="password"
-          />
-
-          {error && (
-            <p className="text-[#B5566B] text-xs">{error}</p>
-          )}
-
-          <button
-            disabled={loading}
-            onClick={login}
-            className="mt-2 bg-[#B5566B] text-white rounded-xl py-3.5 text-sm font-medium flex items-center justify-center gap-2"
-          >
-            {loading && <Loader2 size={15} className="animate-spin" />}
-            Најави се
+        <button onClick={()=>setMode("choose")} className="text-[#8B7A8E] flex items-center gap-1 text-sm mb-6"><ChevronLeft size={16}/>Назад</button>
+        <h1 className="font-serif text-[#2B1B2E] text-2xl" style={{ fontWeight: 600 }}>Најави се</h1>
+        <div className="mt-6 flex flex-col gap-3">
+          <TextField value={email} onChange={e=>setEmail(e.target.value)} placeholder="Е-пошта" type="email" />
+          <TextField value={password} onChange={e=>setPassword(e.target.value)} placeholder="Лозинка" type="password" />
+          {error && <p className="text-[#B5566B] text-xs">{error}</p>}
+          <button type="button" onClick={()=>{ setResetEmail(email); setError(""); setMode("forgot"); }} className="self-end text-[#B5566B] text-xs font-medium">Заборавена лозинка?</button>
+          <button disabled={loading} onClick={login} className="mt-1 bg-[#B5566B] text-white rounded-xl py-3.5 text-sm font-medium flex items-center justify-center gap-2">
+            {loading && <Loader2 size={15} className="animate-spin" />} Најави се
           </button>
-
-          <button
-            onClick={() => setMode("signup")}
-            className="text-[#8B7A8E] text-sm mt-2"
-          >
-            Немаш профил? Направи нов
-          </button>
+          {/* Google-најава е привремено исклучена — најава/регистрација само со е-пошта и лозинка.
+          <GoogleButton onClick={googleSignIn} /> */}
         </div>
       </div>
     );
   }
-
-  if (mode === "signup") {
+  if (mode === "forgot") {
     return (
       <div className="min-h-full bg-[#FDF9F7] flex flex-col px-6 pt-10 pb-8">
-        <button
-          onClick={() => setMode("choose")}
-          className="text-[#8B7A8E] flex items-center gap-1 text-sm mb-6"
-        >
-          <ChevronLeft size={16} />
-          Назад
-        </button>
-
-        <h1
-          className="font-serif text-[#2B1B2E] text-2xl mb-5"
-          style={{ fontWeight: 600 }}
-        >
-          Нов профил
-        </h1>
-
-        <AvatarPicker
-          url={avatarUrl}
-          onChange={setAvatarUrl}
-        />
-
-        <div className="mt-5 flex flex-col gap-3">
-          <TextField
-            value={firstName}
-            onChange={e => setFirstName(e.target.value)}
-            placeholder="Име"
-          />
-
-          <TextField
-            value={lastName}
-            onChange={e => setLastName(e.target.value)}
-            placeholder="Презиме"
-          />
-
-          <TextField
-            value={phone}
-            onChange={e => setPhone(e.target.value)}
-            placeholder="Телефон"
-          />
-
-          <TextField
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            placeholder="Е-пошта"
-            type="email"
-          />
-
-          <TextField
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            placeholder="Лозинка"
-            type="password"
-          />
-
-          <TextField
-            value={confirmPassword}
-            onChange={e => setConfirmPassword(e.target.value)}
-            placeholder="Потврди лозинка"
-            type="password"
-          />
-
-          {error && (
-            <p className="text-[#B5566B] text-xs">{error}</p>
-          )}
-
-          <button
-            disabled={loading}
-            onClick={signup}
-            className="mt-2 bg-[#B5566B] text-white rounded-xl py-3.5 text-sm font-medium flex items-center justify-center gap-2"
-          >
-            {loading && <Loader2 size={15} className="animate-spin" />}
-            Направи профил
+        <button onClick={()=>setMode("login")} className="text-[#8B7A8E] flex items-center gap-1 text-sm mb-6"><ChevronLeft size={16}/>Назад</button>
+        <h1 className="font-serif text-[#2B1B2E] text-2xl" style={{ fontWeight: 600 }}>Ресетирај лозинка</h1>
+        <p className="text-[#8B7A8E] text-sm mt-2">Внеси ја е-поштата и ќе ти испратиме код за да поставиш нова лозинка.</p>
+        <div className="mt-6 flex flex-col gap-3">
+          <TextField value={resetEmail} onChange={e=>setResetEmail(e.target.value)} placeholder="Е-пошта" type="email" />
+          {error && <p className="text-[#B5566B] text-xs">{error}</p>}
+          <button disabled={loading} onClick={sendResetCode} className="mt-1 bg-[#B5566B] text-white rounded-xl py-3.5 text-sm font-medium flex items-center justify-center gap-2">
+            {loading && <Loader2 size={15} className="animate-spin" />} Испрати код
           </button>
         </div>
       </div>
     );
   }
-
-  return null;
+  if (mode === "reset") {
+    return (
+      <div className="min-h-full bg-[#FDF9F7] flex flex-col px-6 pt-10 pb-8">
+        <button onClick={()=>setMode("forgot")} className="text-[#8B7A8E] flex items-center gap-1 text-sm mb-6"><ChevronLeft size={16}/>Назад</button>
+        <h1 className="font-serif text-[#2B1B2E] text-2xl" style={{ fontWeight: 600 }}>Нова лозинка</h1>
+        <p className="text-[#8B7A8E] text-sm mt-2">Испративме код од 8 бројки на {resetEmail}.</p>
+        <div className="mt-6 flex flex-col gap-3">
+          <TextField value={resetCode} onChange={e=>setResetCode(e.target.value)} placeholder="Код од е-поштата" inputMode="numeric" maxLength={8} />
+          <TextField value={newPassword} onChange={e=>setNewPassword(e.target.value)} placeholder="Нова лозинка" type="password" />
+          <TextField value={confirmNewPassword} onChange={e=>setConfirmNewPassword(e.target.value)} placeholder="Потврди нова лозинка" type="password" />
+          {error && <p className="text-[#B5566B] text-xs">{error}</p>}
+          <button disabled={loading} onClick={confirmReset} className="mt-1 bg-[#B5566B] text-white rounded-xl py-3.5 text-sm font-medium flex items-center justify-center gap-2">
+            {loading && <Loader2 size={15} className="animate-spin" />} Постави лозинка
+          </button>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="min-h-full bg-[#FDF9F7] flex flex-col px-6 pt-10 pb-8">
+      <button onClick={()=>setMode("choose")} className="text-[#8B7A8E] flex items-center gap-1 text-sm mb-6"><ChevronLeft size={16}/>Назад</button>
+      <h1 className="font-serif text-[#2B1B2E] text-2xl mb-5" style={{ fontWeight: 600 }}>Нов профил</h1>
+      <AvatarPicker url={avatarUrl} onChange={setAvatarUrl} />
+      <div className="mt-5 flex flex-col gap-3">
+        <TextField value={firstName} onChange={e=>setFirstName(e.target.value)} placeholder="Име" />
+        <TextField value={lastName} onChange={e=>setLastName(e.target.value)} placeholder="Презиме" />
+        <TextField value={phone} onChange={e=>setPhone(e.target.value)} placeholder="Телефон" />
+        <TextField value={email} onChange={e=>setEmail(e.target.value)} placeholder="Е-пошта" type="email" />
+        <TextField value={password} onChange={e=>setPassword(e.target.value)} placeholder="Лозинка" type="password" />
+        <TextField value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} placeholder="Потврди лозинка" type="password" />
+        {error && <p className="text-[#B5566B] text-xs">{error}</p>}
+        <button disabled={loading} onClick={signup} className="mt-2 bg-[#B5566B] text-white rounded-xl py-3.5 text-sm font-medium flex items-center justify-center gap-2">
+          {loading && <Loader2 size={15} className="animate-spin" />} Продолжи
+        </button>
+        {/* Google-најава е привремено исклучена — најава/регистрација само со е-пошта и лозинка.
+        <GoogleButton onClick={googleSignIn} /> */}
+      </div>
+    </div>
+  );
 }
 
 function CompleteClientProfile({ session, onDone, onBack }) {
@@ -553,7 +439,7 @@ function CompleteClientProfile({ session, onDone, onBack }) {
     if (err) { console.error(err); setError("Настана грешка, обиди се повторно."); return; }
     onDone(data);
   };
-/*
+
   return (
     <div className="min-h-full bg-[#FDF9F7] flex flex-col px-6 pt-10 pb-8">
       <button onClick={()=>{ supabase.auth.signOut(); onBack(); }} className="text-[#8B7A8E] flex items-center gap-1 text-sm mb-6"><ChevronLeft size={16}/>Назад</button>
@@ -569,32 +455,35 @@ function CompleteClientProfile({ session, onDone, onBack }) {
         </button>
       </div>
     </div>
-  );*/
+  );
 }
 
-function ChangePassword() {
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+function ChangePasswordSection() {
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
-  const save = async () => {
+
+  const changePassword = async () => {
     setMsg("");
-    if (password.length < 6) { setMsg("Лозинката мора да има барем 6 карактери."); return; }
-    if (password !== confirmPassword) { setMsg("Лозинките не се совпаѓаат."); return; }
+    if (newPassword.length < 6) { setMsg("Лозинката мора да има барем 6 карактери."); return; }
+    if (newPassword !== confirmNewPassword) { setMsg("Лозинките не се совпаѓаат."); return; }
     setSaving(true);
-    const { error } = await supabase.auth.updateUser({ password });
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
     setSaving(false);
     if (error) { setMsg("Настана грешка, обиди се повторно."); return; }
-    setPassword(""); setConfirmPassword(""); setMsg("Лозинката е сменета.");
+    setNewPassword(""); setConfirmNewPassword("");
+    setMsg("Лозинката е успешно сменета.");
   };
+
   return (
-    <div className="flex flex-col gap-2 bg-white border border-[#EDE3E0] rounded-2xl p-4">
-      <div className="text-[#6B5A6E] text-xs font-medium uppercase tracking-wide mb-1">Смени лозинка</div>
-      <TextField value={password} onChange={e=>setPassword(e.target.value)} placeholder="Нова лозинка" type="password" />
-      <TextField value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} placeholder="Потврди лозинка" type="password" />
-      {msg && <p className={`text-xs ${msg.includes("сменета") ? "text-[#4A6B54]" : "text-[#B5566B]"}`}>{msg}</p>}
-      <button disabled={saving} onClick={save} className="mt-1 py-2.5 rounded-xl border border-[#EDE3E0] text-[#2B1B2E] text-xs font-medium flex items-center justify-center gap-2">
-        {saving && <Loader2 size={13} className="animate-spin"/>} Зачувај лозинка
+    <div className="mt-1 pt-4 border-t border-[#EDE3E0] flex flex-col gap-3">
+      <div className="text-[#6B5A6E] text-xs font-medium uppercase tracking-wide">Смени лозинка</div>
+      <TextField value={newPassword} onChange={e=>setNewPassword(e.target.value)} placeholder="Нова лозинка" type="password" />
+      <TextField value={confirmNewPassword} onChange={e=>setConfirmNewPassword(e.target.value)} placeholder="Потврди нова лозинка" type="password" />
+      {msg && <p className="text-[#B5566B] text-xs">{msg}</p>}
+      <button disabled={saving} onClick={changePassword} className="py-3 rounded-xl border border-[#EDE3E0] text-[#2B1B2E] text-sm font-medium flex items-center justify-center gap-2">
+        {saving && <Loader2 size={15} className="animate-spin"/>} Смени лозинка
       </button>
     </div>
   );
@@ -617,11 +506,11 @@ function ClientProfile({ client, onSaved, onLogout }) {
       <AvatarPicker url={avatarUrl} onChange={setAvatarUrl} />
       <TextField value={name} onChange={e=>setName(e.target.value)} placeholder="Име" />
       <TextField value={phone} onChange={e=>setPhone(e.target.value)} placeholder="Телефон" />
-      <div className="bg-[#F2EAE7] rounded-xl px-4 py-3 text-sm text-[#8B7A8E]">{client.email}</div>
+      <TextField value={client.email || ""} disabled placeholder="Е-пошта" className="opacity-60 cursor-not-allowed" />
       <button disabled={saving} onClick={save} className="bg-[#B5566B] text-white rounded-xl py-3 text-sm font-medium flex items-center justify-center gap-2">
         {saving && <Loader2 size={15} className="animate-spin"/>} Зачувај промени
       </button>
-      <ChangePassword />
+      <ChangePasswordSection />
       <button onClick={onLogout} className="mt-2 py-3 rounded-xl border border-[#EDE3E0] text-[#8B7A8E] text-sm font-medium">Одјави се</button>
     </div>
   );
@@ -890,11 +779,11 @@ function MyBookings({ client }) {
 
 function SearchByDate({ city, category, client, onPicked }) {
   const [date, setDate] = useState(null);
-  const [results, setResults] = useState([]);
+  const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!date) { setResults([]); return; }
+    if (!date) { setResults(null); return; }
     setLoading(true);
     (async () => {
       const { data: availRows, error: availErr } = await supabase.from("availability").select("provider_id").eq("date", date).eq("status", "free");
@@ -917,7 +806,7 @@ function SearchByDate({ city, category, client, onPicked }) {
       {date && (
         <div className="mt-4">
           <div className="text-[#6B5A6E] text-xs font-medium mb-2 uppercase tracking-wide">Слободни на {formatDate(date)}</div>
-          {loading ? <Spinner /> : results.length === 0 ? (
+          {loading || !results ? <Spinner /> : results.length === 0 ? (
             <p className="text-[#B3A5B5] text-sm text-center pt-4">Никој {city ? `во ${city} ` : ""}нема слободен термин на овој датум{category ? " за таа услуга" : ""}.</p>
           ) : (
             <div className="flex flex-col gap-3">
@@ -1021,7 +910,7 @@ function SearchBook({ client }) {
         <SearchByDate city={city} category={category} client={client} onPicked={(p, d)=>{ setSelected(p); setPickedDate(d); }} />
       ) : loading ? <Spinner /> : (
         <div className="flex-1 px-6 pb-8 flex flex-col gap-3">
-          {results.length === 0 && <p className="text-[#B3A5B5] text-sm text-center pt-8">Нема сеуште регистрирано некој во {city} за овој филтер.</p>}
+          {results.length === 0 && <p className="text-[#B3A5B5] text-sm text-center pt-8">Нема сеуште регистрирано некој {city ? `во ${city} ` : ""}за овој филтер.</p>}
           {results.map(p => {
             const list = category ? (p.services||[]).filter(s=>s.category===category) : (p.services||[]);
             const min = list.length ? Math.min(...list.map(s=>s.price)) : null;
@@ -1154,7 +1043,7 @@ function BookingDetail({ provider, client, onBack, onConfirm, preselectCategory,
 
 // ---------------- Provider auth ----------------
 function ProviderAuth({ onBack }) {
-  const [mode, setMode] = useState("choose"); // choose | login | signup | forgot | checkEmail
+  const [mode, setMode] = useState("choose"); // choose | login | signup | forgot | reset
   const [avatarUrl, setAvatarUrl] = useState(null);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -1169,6 +1058,11 @@ function ProviderAuth({ onBack }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetCode, setResetCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
+
   const login = async () => {
     setError(""); setLoading(true);
     const { error: err } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
@@ -1176,114 +1070,94 @@ function ProviderAuth({ onBack }) {
     if (err) setError("Погрешна е-пошта или лозинка.");
   };
 
-const signup = async () => {
-  setError("");
+  const sendResetCode = async () => {
+    setError("");
+    if (!resetEmail.trim()) { setError("Внеси ја е-поштата."); return; }
+    setLoading(true);
+    const { error: err } = await supabase.auth.resetPasswordForEmail(resetEmail.trim());
+    setLoading(false);
+    if (err) { setError("Настана грешка, обиди се повторно."); return; }
+    setMode("reset");
+  };
 
-  if (
-    !firstName.trim() ||
-    !lastName.trim() ||
-    !salon.trim() ||
-    !city.trim() ||
-    !phone.trim() ||
-    !email.trim()
-  ) {
-    setError("Пополни ги сите задолжителни полиња.");
-    return;
-  }
+  const confirmReset = async () => {
+    setError("");
+    if (resetCode.trim().length !== 8) { setError("Внеси го целиот код од 8 бројки."); return; }
+    if (newPassword.length < 6) { setError("Лозинката мора да има барем 6 карактери."); return; }
+    if (newPassword !== confirmNewPassword) { setError("Лозинките не се совпаѓаат."); return; }
+    setLoading(true);
+    const { error: verErr } = await supabase.auth.verifyOtp({ email: resetEmail.trim(), token: resetCode.trim(), type: "recovery" });
+    if (verErr) { setLoading(false); setError("Погрешен или истечен код."); return; }
+    const { error: updErr } = await supabase.auth.updateUser({ password: newPassword });
+    setLoading(false);
+    if (updErr) { setError("Настана грешка при менувањето на лозинката."); return; }
+    // Сесијата е веќе активна — ProviderFlow автоматски продолжува понатаму.
+  };
 
-  if (password.length < 6) {
-    setError("Лозинката мора да има барем 6 карактери.");
-    return;
-  }
+  const signup = async () => {
+    setError("");
+    if (!firstName.trim() || !lastName.trim() || !salon.trim() || !city.trim() || !phone.trim() || !email.trim()) { setError("Пополни ги сите задолжителни полиња."); return; }
+    if (password.length < 6) { setError("Лозинката мора да има барем 6 карактери."); return; }
+    if (password !== confirmPassword) { setError("Лозинките не се совпаѓаат."); return; }
+    setLoading(true);
 
-  if (password !== confirmPassword) {
-    setError("Лозинките не се совпаѓаат.");
-    return;
-  }
+    const { data, error: err } = await supabase.auth.signUp({ email: email.trim(), password });
+    if (err) {
+      setLoading(false);
+      setError(err.message.includes("already") ? "Веќе постои профил со таа е-пошта." : "Настана грешка, обиди се повторно.");
+      return;
+    }
 
-  setLoading(true);
+    // Ако е-поштата бара потврда (сеуште вклучено во Supabase), нема активна сесија —
+    // во тој случај корисникот треба прво да ја потврди е-поштата пред да продолжи.
+    if (!data.session) {
+      setLoading(false);
+      setError("Профилот е креиран, но е-поштата бара потврда пред најава. Провери го инбоксот, или исклучи ја потврдата на е-пошта во Supabase поставките.");
+      return;
+    }
 
-  const { data, error: err } = await supabase.auth.signUp({
-    email: email.trim(),
-    password,
-    options: {
-      data: {
-        full_name: `${firstName.trim()} ${lastName.trim()}`,
+    const { data: provider, error: insErr } = await supabase
+      .from("providers")
+      .insert({
+        auth_user_id: data.user.id,
+        name: `${firstName.trim()} ${lastName.trim()}`,
+        salon: salon.trim(),
+        city: city.trim(),
+        address: address.trim() || null,
         phone: phone.trim(),
+        email: email.trim(),
+        bio: bio.trim() || null,
+        services: [],
+        rating: 5.0,
+        available: true,
         avatar_url: avatarUrl,
-      },
-    },
-  });
+      })
+      .select()
+      .single();
 
-  if (err) {
     setLoading(false);
-    setError(
-      err.message.includes("already")
-        ? "Веќе постои профил со таа е-пошта."
-        : "Настана грешка, обиди се повторно."
-    );
-    return;
-  }
 
-  if (!data.user) {
-    setLoading(false);
-    setError("Неуспешно креирање на профилот.");
-    return;
-  }
+    if (insErr) {
+      console.error("PROVIDER INSERT ERROR:", insErr);
+      setError("Настана грешка при креирање на профилот.");
+      return;
+    }
 
-  const { data: provider, error: insErr } = await supabase
-    .from("providers")
-    .insert({
-      auth_user_id: data.user.id,
-      name: `${firstName.trim()} ${lastName.trim()}`,
-      salon: salon.trim(),
-      city: city.trim(),
-      address: address.trim() || null,
-      phone: phone.trim(),
-      email: email.trim(),
-      bio: bio.trim() || null,
-      services: [],
-      rating: 5.0,
-      available: true,
-      avatar_url: avatarUrl,
-    })
-    .select()
-    .single();
-
-  setLoading(false);
-
-  if (insErr) {
-    console.error(insErr);
-    setError("Профилот е креиран, но настана грешка при зачувување на податоците.");
-    return;
-  }
-
-  // Корисникот продолжува директно во апликацијата.
-};
+    // ProviderFlow ќе го најде профилот преку auth_user_id (onAuthStateChange) и веднаш продолжува.
+  };
 
   if (mode === "choose") {
     return (
       <div className="min-h-full bg-[#FDF9F7] flex flex-col px-6 pt-10 pb-8 items-center text-center">
         <button onClick={onBack} className="self-start text-[#8B7A8E] flex items-center gap-1 text-sm mb-6"><ChevronLeft size={16}/>Назад</button>
         <Logo size={26} />
-        <h1 className="font-serif text-[#2B1B2E] text-2xl mt-8" style={{ fontWeight: 600 }}>Профил за Artist</h1>
+        <h1 className="font-serif text-[#2B1B2E] text-2xl mt-8" style={{ fontWeight: 600 }}>Профил за давател</h1>
         <div className="mt-8 w-full flex flex-col gap-3">
           <button onClick={()=>setMode("signup")} className="w-full bg-[#B5566B] text-white rounded-xl py-3.5 text-sm font-medium">Направи нов профил</button>
           <button onClick={()=>setMode("login")} className="w-full bg-white border border-[#EDE3E0] text-[#2B1B2E] rounded-xl py-3.5 text-sm font-medium">Најави се на постоечки</button>
+          {/* Google-најава е привремено исклучена — најава/регистрација само со е-пошта и лозинка.
+          <GoogleButton onClick={googleSignIn} /> */}
         </div>
-      </div>
-    );
-  }
-  if (mode === "forgot") return <ForgotPassword onBack={()=>setMode("login")} />;
-  if (mode === "checkEmail") {
-    return (
-      <div className="min-h-full bg-[#FDF9F7] flex flex-col px-6 pt-10 pb-8 items-center text-center">
-        <div className="w-16 h-16 rounded-full bg-[#DCE6DE] flex items-center justify-center mb-5">
-          <Check size={28} className="text-[#4A6B54]" />
-        </div>
-        <h2 className="font-serif text-[#2B1B2E] text-xl" style={{ fontWeight: 600 }}>Провери ja е-поштата</h2>
-        <p className="text-[#8B7A8E] text-sm mt-2">Испративме линк на {email}. Кликни на него, потоа најави се тука.</p>
-        <button onClick={()=>setMode("login")} className="mt-8 text-[#B5566B] text-sm font-medium">Назад кон најава</button>
       </div>
     );
   }
@@ -1296,9 +1170,45 @@ const signup = async () => {
           <TextField value={email} onChange={e=>setEmail(e.target.value)} placeholder="Е-пошта" type="email" />
           <TextField value={password} onChange={e=>setPassword(e.target.value)} placeholder="Лозинка" type="password" />
           {error && <p className="text-[#B5566B] text-xs">{error}</p>}
-          <button onClick={()=>setMode("forgot")} className="text-[#B5566B] text-xs font-medium self-start">Заборавена лозинка?</button>
+          <button type="button" onClick={()=>{ setResetEmail(email); setError(""); setMode("forgot"); }} className="self-end text-[#B5566B] text-xs font-medium">Заборавена лозинка?</button>
           <button disabled={loading} onClick={login} className="mt-1 bg-[#B5566B] text-white rounded-xl py-3.5 text-sm font-medium flex items-center justify-center gap-2">
             {loading && <Loader2 size={15} className="animate-spin" />} Најави се
+          </button>
+          {/* Google-најава е привремено исклучена — најава/регистрација само со е-пошта и лозинка.
+          <GoogleButton onClick={googleSignIn} /> */}
+        </div>
+      </div>
+    );
+  }
+  if (mode === "forgot") {
+    return (
+      <div className="min-h-full bg-[#FDF9F7] flex flex-col px-6 pt-10 pb-8">
+        <button onClick={()=>setMode("login")} className="text-[#8B7A8E] flex items-center gap-1 text-sm mb-6"><ChevronLeft size={16}/>Назад</button>
+        <h1 className="font-serif text-[#2B1B2E] text-2xl" style={{ fontWeight: 600 }}>Ресетирај лозинка</h1>
+        <p className="text-[#8B7A8E] text-sm mt-2">Внеси ја е-поштата и ќе ти испратиме код за да поставиш нова лозинка.</p>
+        <div className="mt-6 flex flex-col gap-3">
+          <TextField value={resetEmail} onChange={e=>setResetEmail(e.target.value)} placeholder="Е-пошта" type="email" />
+          {error && <p className="text-[#B5566B] text-xs">{error}</p>}
+          <button disabled={loading} onClick={sendResetCode} className="mt-1 bg-[#B5566B] text-white rounded-xl py-3.5 text-sm font-medium flex items-center justify-center gap-2">
+            {loading && <Loader2 size={15} className="animate-spin" />} Испрати код
+          </button>
+        </div>
+      </div>
+    );
+  }
+  if (mode === "reset") {
+    return (
+      <div className="min-h-full bg-[#FDF9F7] flex flex-col px-6 pt-10 pb-8">
+        <button onClick={()=>setMode("forgot")} className="text-[#8B7A8E] flex items-center gap-1 text-sm mb-6"><ChevronLeft size={16}/>Назад</button>
+        <h1 className="font-serif text-[#2B1B2E] text-2xl" style={{ fontWeight: 600 }}>Нова лозинка</h1>
+        <p className="text-[#8B7A8E] text-sm mt-2">Испративме код од 8 бројки на {resetEmail}.</p>
+        <div className="mt-6 flex flex-col gap-3">
+          <TextField value={resetCode} onChange={e=>setResetCode(e.target.value)} placeholder="Код од е-поштата" inputMode="numeric" maxLength={8} />
+          <TextField value={newPassword} onChange={e=>setNewPassword(e.target.value)} placeholder="Нова лозинка" type="password" />
+          <TextField value={confirmNewPassword} onChange={e=>setConfirmNewPassword(e.target.value)} placeholder="Потврди нова лозинка" type="password" />
+          {error && <p className="text-[#B5566B] text-xs">{error}</p>}
+          <button disabled={loading} onClick={confirmReset} className="mt-1 bg-[#B5566B] text-white rounded-xl py-3.5 text-sm font-medium flex items-center justify-center gap-2">
+            {loading && <Loader2 size={15} className="animate-spin" />} Постави лозинка
           </button>
         </div>
       </div>
@@ -1323,8 +1233,10 @@ const signup = async () => {
         <TextField value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} placeholder="Потврди лозинка" type="password" />
         {error && <p className="text-[#B5566B] text-xs">{error}</p>}
         <button disabled={loading} onClick={signup} className="mt-2 bg-[#B5566B] text-white rounded-xl py-3.5 text-sm font-medium flex items-center justify-center gap-2">
-          {loading && <Loader2 size={15} className="animate-spin" />} Направи профил
+          {loading && <Loader2 size={15} className="animate-spin" />} Продолжи
         </button>
+        {/* Google-најава е привремено исклучена — најава/регистрација само со е-пошта и лозинка.
+        <GoogleButton onClick={googleSignIn} /> */}
       </div>
     </div>
   );
@@ -1354,7 +1266,7 @@ function CompleteProviderProfile({ session, onDone, onBack }) {
     if (err) { console.error(err); setError("Настана грешка, обиди се повторно."); return; }
     onDone(data);
   };
-/*
+
   return (
     <div className="min-h-full bg-[#FDF9F7] flex flex-col px-6 pt-10 pb-8">
       <button onClick={()=>{ supabase.auth.signOut(); onBack(); }} className="text-[#8B7A8E] flex items-center gap-1 text-sm mb-6"><ChevronLeft size={16}/>Назад</button>
@@ -1376,7 +1288,6 @@ function CompleteProviderProfile({ session, onDone, onBack }) {
       </div>
     </div>
   );
-  */
 }
 
 function ProviderProfile({ provider, onSaved, onLogout }) {
@@ -1407,11 +1318,11 @@ function ProviderProfile({ provider, onSaved, onLogout }) {
       <TextField value={address} onChange={e=>setAddress(e.target.value)} placeholder="Адреса (опционално)" />
       <textarea value={bio} onChange={e=>setBio(e.target.value)} placeholder="Кратко за тебе (опционално)" rows={3}
         className="bg-white border border-[#EDE3E0] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#B5566B] resize-none" />
+      <TextField value={provider.email || ""} disabled placeholder="Е-пошта" className="opacity-60 cursor-not-allowed" />
       <button disabled={saving} onClick={save} className="bg-[#B5566B] text-white rounded-xl py-3 text-sm font-medium flex items-center justify-center gap-2">
         {saving && <Loader2 size={15} className="animate-spin"/>} Зачувај промени
       </button>
-      <div className="bg-[#F2EAE7] rounded-xl px-4 py-3 text-sm text-[#8B7A8E]">{provider.email}</div>
-      <ChangePassword />
+      <ChangePasswordSection />
       <button onClick={onLogout} className="mt-2 py-3 rounded-xl border border-[#EDE3E0] text-[#8B7A8E] text-sm font-medium">Одјави се</button>
     </div>
   );
@@ -1923,8 +1834,7 @@ function ProviderDashboard({ provider: initialProvider, onLogout }) {
 function ProviderFlow({ onBack }) {
   const [session, setSession] = useState(undefined);
   const [provider, setProvider] = useState(null);
-  const [checkingProfile, setCheckingProfile] = useState(false);
-  const [profileError, setProfileError] = useState(false);
+  const [checkingProfile, setCheckingProfile] = useState(true);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
@@ -1932,18 +1842,13 @@ function ProviderFlow({ onBack }) {
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  const loadProvider = () => {
-    if (!session) { setProvider(null); return; }
+  useEffect(() => {
+    if (session === undefined) return; // сесијата сеуште не е разрешена
+    if (!session) { setProvider(null); setCheckingProfile(false); return; }
     setCheckingProfile(true);
-    setProfileError(false);
     supabase.from("providers").select("*").eq("auth_user_id", session.user.id).maybeSingle()
-      .then(({ data, error }) => {
-        if (error) { console.error(error); setProfileError(true); setCheckingProfile(false); return; }
-        setProvider(data);
-        setCheckingProfile(false);
-      });
-  };
-  useEffect(loadProvider, [session?.user?.id]);
+      .then(({ data }) => { setProvider(data); setCheckingProfile(false); });
+  }, [session]);
 
   const logout = async () => {
     await supabase.auth.signOut();
@@ -1953,14 +1858,6 @@ function ProviderFlow({ onBack }) {
 
   if (session === undefined || checkingProfile) return <div className="min-h-full bg-[#FDF9F7] flex flex-col"><Spinner /></div>;
   if (!session) return <ProviderAuth onBack={onBack} />;
-  if (profileError) {
-    return (
-      <div className="min-h-full bg-[#FDF9F7] flex flex-col px-6 pt-16 pb-8 items-center text-center">
-        <p className="text-[#8B7A8E] text-sm mb-4">Настана мрежна грешка при вчитување на профилот.</p>
-        <button onClick={loadProvider} className="bg-[#B5566B] text-white rounded-xl px-6 py-3 text-sm font-medium">Обиди се повторно</button>
-      </div>
-    );
-  }
   if (!provider) return <CompleteProviderProfile session={session} onDone={setProvider} onBack={onBack} />;
   return <ProviderDashboard provider={provider} onLogout={logout} />;
 }
@@ -1968,8 +1865,7 @@ function ProviderFlow({ onBack }) {
 function ClientFlow({ onBack }) {
   const [session, setSession] = useState(undefined);
   const [client, setClient] = useState(null);
-  const [checkingProfile, setCheckingProfile] = useState(false);
-  const [profileError, setProfileError] = useState(false);
+  const [checkingProfile, setCheckingProfile] = useState(true);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
@@ -1977,18 +1873,13 @@ function ClientFlow({ onBack }) {
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  const loadClient = () => {
-    if (!session) { setClient(null); return; }
+  useEffect(() => {
+    if (session === undefined) return; // сесијата сеуште не е разрешена
+    if (!session) { setClient(null); setCheckingProfile(false); return; }
     setCheckingProfile(true);
-    setProfileError(false);
     supabase.from("clients").select("*").eq("auth_user_id", session.user.id).maybeSingle()
-      .then(({ data, error }) => {
-        if (error) { console.error(error); setProfileError(true); setCheckingProfile(false); return; }
-        setClient(data);
-        setCheckingProfile(false);
-      });
-  };
-  useEffect(loadClient, [session?.user?.id]);
+      .then(({ data }) => { setClient(data); setCheckingProfile(false); });
+  }, [session]);
 
   const logout = async () => {
     await supabase.auth.signOut();
@@ -1998,76 +1889,15 @@ function ClientFlow({ onBack }) {
 
   if (session === undefined || checkingProfile) return <div className="min-h-full bg-[#FDF9F7] flex flex-col"><Spinner /></div>;
   if (!session) return <ClientAuth onBack={onBack} />;
-  if (profileError) {
-    return (
-      <div className="min-h-full bg-[#FDF9F7] flex flex-col px-6 pt-16 pb-8 items-center text-center">
-        <p className="text-[#8B7A8E] text-sm mb-4">Настана мрежна грешка при вчитување на профилот.</p>
-        <button onClick={loadClient} className="bg-[#B5566B] text-white rounded-xl px-6 py-3 text-sm font-medium">Обиди се повторно</button>
-      </div>
-    );
-  }
   if (!client) return <CompleteClientProfile session={session} onDone={setClient} onBack={onBack} />;
   return <ClientHome client={client} onHome={onBack} onLogout={logout} />;
-}
-
-function ResetPasswordScreen({ onDone }) {
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  const save = async () => {
-    setError("");
-    if (password.length < 6) { setError("Лозинката мора да има барем 6 карактери."); return; }
-    if (password !== confirmPassword) { setError("Лозинките не се совпаѓаат."); return; }
-    setLoading(true);
-    const { error: err } = await supabase.auth.updateUser({ password });
-    setLoading(false);
-    if (err) { setError("Настана грешка, обиди се повторно."); return; }
-    onDone();
-  };
-
-  return (
-    <div className="min-h-full bg-[#FDF9F7] flex flex-col px-6 pt-16 pb-8">
-      <Logo size={26} />
-      <h1 className="font-serif text-[#2B1B2E] text-2xl mt-8" style={{ fontWeight: 600 }}>Нова лозинка</h1>
-      <p className="text-[#8B7A8E] text-sm mt-2">Внеси ја новата лозинка за твојата сметка.</p>
-      <div className="mt-6 flex flex-col gap-3">
-        <TextField value={password} onChange={e=>setPassword(e.target.value)} placeholder="Нова лозинка" type="password" />
-        <TextField value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} placeholder="Потврди лозинка" type="password" />
-        {error && <p className="text-[#B5566B] text-xs">{error}</p>}
-        <button disabled={loading} onClick={save} className="mt-1 bg-[#B5566B] text-white rounded-xl py-3.5 text-sm font-medium flex items-center justify-center gap-2">
-          {loading && <Loader2 size={15} className="animate-spin" />} Зачувај лозинка
-        </button>
-      </div>
-    </div>
-  );
 }
 
 // ---------------- Root ----------------
 export default function App() {
   const [role, setRole] = useState(() => localStorage.getItem("termin-role") || null);
-  const [recovery, setRecovery] = useState(false);
   const pick = (r) => { localStorage.setItem("termin-role", r); setRole(r); };
   const clearRole = () => { localStorage.removeItem("termin-role"); setRole(null); };
-
-  useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "PASSWORD_RECOVERY") setRecovery(true);
-    });
-    return () => sub.subscription.unsubscribe();
-  }, []);
-
-  if (recovery) {
-    return (
-      <div className="w-full min-h-screen bg-[#FDF9F7] flex justify-center">
-        <div className="w-full max-w-sm min-h-screen bg-[#FDF9F7] relative">
-          <ResetPasswordScreen onDone={()=>setRecovery(false)} />
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="w-full min-h-screen bg-[#FDF9F7] flex justify-center">
       <div className="w-full max-w-sm min-h-screen bg-[#FDF9F7] relative">

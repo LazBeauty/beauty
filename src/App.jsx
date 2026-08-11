@@ -264,158 +264,275 @@ function ForgotPassword({ onBack }) {
 }
 
 function ClientAuth({ onBack }) {
-  const [mode, setMode] = useState("choose"); // choose | login | signup | forgot | checkEmail
-  const [avatarUrl, setAvatarUrl] = useState(null);
+  const [mode, setMode] = useState("choose");
+
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState(null);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const login = async () => {
-    setError(""); setLoading(true);
-    const { error: err } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    setError("");
+    setLoading(true);
+
+    const { error: err } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
+
     setLoading(false);
-    if (err) setError("Погрешна е-пошта или лозинка.");
+
+    if (err) {
+      setError("Погрешна е-пошта или лозинка.");
+    }
   };
 
- const signup = async () => {
-  setError("");
+  const signup = async () => {
+    setError("");
 
-  if (!firstName.trim() || !lastName.trim() || !phone.trim() || !email.trim()) {
-    setError("Пополни ги сите полиња.");
-    return;
-  }
+    if (
+      !firstName.trim() ||
+      !lastName.trim() ||
+      !phone.trim() ||
+      !email.trim()
+    ) {
+      setError("Пополни ги сите задолжителни полиња.");
+      return;
+    }
 
-  if (password.length < 6) {
-    setError("Лозинката мора да има барем 6 карактери.");
-    return;
-  }
+    if (password.length < 6) {
+      setError("Лозинката мора да има барем 6 карактери.");
+      return;
+    }
 
-  if (password !== confirmPassword) {
-    setError("Лозинките не се совпаѓаат.");
-    return;
-  }
+    if (password !== confirmPassword) {
+      setError("Лозинките не се совпаѓаат.");
+      return;
+    }
 
-  setLoading(true);
+    setLoading(true);
 
-  const { data, error: err } = await supabase.auth.signUp({
-    email: email.trim(),
-    password,
-    options: {
-      data: {
-        full_name: `${firstName.trim()} ${lastName.trim()}`,
-        phone: phone.trim(),
-        avatar_url: avatarUrl,
-      },
-    },
-  });
-
-  if (err) {
-    setLoading(false);
-    setError(
-      err.message.includes("already")
-        ? "Веќе постои профил со таа е-пошта."
-        : "Настана грешка, обиди се повторно."
-    );
-    return;
-  }
-
-  if (!data.user) {
-    setLoading(false);
-    setError("Неуспешно креирање на профилот.");
-    return;
-  }
-
-  const { data: client, error: insErr } = await supabase
-    .from("clients")
-    .insert({
-      auth_user_id: data.user.id,
-      name: `${firstName.trim()} ${lastName.trim()}`,
-      phone: phone.trim(),
+    const { data, error: err } = await supabase.auth.signUp({
       email: email.trim(),
-      avatar_url: avatarUrl,
-    })
-    .select()
-    .single();
+      password,
+      options: {
+        data: {
+          full_name: `${firstName.trim()} ${lastName.trim()}`,
+          phone: phone.trim(),
+          avatar_url: avatarUrl,
+        },
+      },
+    });
 
-  setLoading(false);
+    setLoading(false);
 
-  if (insErr) {
-    console.error(insErr);
-    setError("Профилот е креиран, но настана грешка при зачувување на податоците.");
-    return;
-  }
+    if (err) {
+      console.error(err);
 
-  // Ако Supabase автоматски ја креира сесијата,
-  // корисникот веднаш продолжува во апликацијата.
-};
+      if (
+        err.message.toLowerCase().includes("already") ||
+        err.message.toLowerCase().includes("registered")
+      ) {
+        setError("Веќе постои профил со таа е-пошта.");
+      } else {
+        setError(err.message);
+      }
+
+      return;
+    }
+
+    if (!data.user) {
+      setError("Неуспешно креирање на профилот.");
+      return;
+    }
+
+    // Не правиме insert во clients тука.
+    // ClientFlow ќе ја земе session и ќе го креира профилот.
+  };
+
   if (mode === "choose") {
     return (
       <div className="min-h-full bg-[#FDF9F7] flex flex-col px-6 pt-10 pb-8 items-center text-center">
-        <button onClick={onBack} className="self-start text-[#8B7A8E] flex items-center gap-1 text-sm mb-6"><ChevronLeft size={16}/>Назад</button>
+        <button
+          onClick={onBack}
+          className="self-start text-[#8B7A8E] flex items-center gap-1 text-sm mb-6"
+        >
+          <ChevronLeft size={16} />
+          Назад
+        </button>
+
         <Logo size={26} />
-        <h1 className="font-serif text-[#2B1B2E] text-2xl mt-8" style={{ fontWeight: 600 }}>Твојот профил</h1>
-        <p className="text-[#8B7A8E] text-sm mt-2">За да закажуваш и да ги гледаш твоите термини.</p>
+
+        <h1
+          className="font-serif text-[#2B1B2E] text-2xl mt-8"
+          style={{ fontWeight: 600 }}
+        >
+          Профил за клиент
+        </h1>
+
         <div className="mt-8 w-full flex flex-col gap-3">
-          <button onClick={()=>setMode("signup")} className="w-full bg-[#B5566B] text-white rounded-xl py-3.5 text-sm font-medium">Направи нов профил</button>
-          <button onClick={()=>setMode("login")} className="w-full bg-white border border-[#EDE3E0] text-[#2B1B2E] rounded-xl py-3.5 text-sm font-medium">Најави се на постоечки</button>
-        </div>
-      </div>
-    );
-  }
-  if (mode === "forgot") return <ForgotPassword onBack={()=>setMode("login")} />;
-  if (mode === "checkEmail") {
-    return (
-      <div className="min-h-full bg-[#FDF9F7] flex flex-col px-6 pt-10 pb-8 items-center text-center">
-        <div className="w-16 h-16 rounded-full bg-[#DCE6DE] flex items-center justify-center mb-5">
-          <Check size={28} className="text-[#4A6B54]" />
-        </div>
-        <h2 className="font-serif text-[#2B1B2E] text-xl" style={{ fontWeight: 600 }}>Провери ja е-поштата</h2>
-        <p className="text-[#8B7A8E] text-sm mt-2">Испративме линк на {email}. Кликни на него, потоа најави се тука.</p>
-        <button onClick={()=>setMode("login")} className="mt-8 text-[#B5566B] text-sm font-medium">Назад кон најава</button>
-      </div>
-    );
-  }
-  if (mode === "login") {
-    return (
-      <div className="min-h-full bg-[#FDF9F7] flex flex-col px-6 pt-10 pb-8">
-        <button onClick={()=>setMode("choose")} className="text-[#8B7A8E] flex items-center gap-1 text-sm mb-6"><ChevronLeft size={16}/>Назад</button>
-        <h1 className="font-serif text-[#2B1B2E] text-2xl" style={{ fontWeight: 600 }}>Најави се</h1>
-        <div className="mt-6 flex flex-col gap-3">
-          <TextField value={email} onChange={e=>setEmail(e.target.value)} placeholder="Е-пошта" type="email" />
-          <TextField value={password} onChange={e=>setPassword(e.target.value)} placeholder="Лозинка" type="password" />
-          {error && <p className="text-[#B5566B] text-xs">{error}</p>}
-          <button onClick={()=>setMode("forgot")} className="text-[#B5566B] text-xs font-medium self-start">Заборавена лозинка?</button>
-          <button disabled={loading} onClick={login} className="mt-1 bg-[#B5566B] text-white rounded-xl py-3.5 text-sm font-medium flex items-center justify-center gap-2">
-            {loading && <Loader2 size={15} className="animate-spin" />} Најави се
+          <button
+            onClick={() => setMode("signup")}
+            className="w-full bg-[#B5566B] text-white rounded-xl py-3.5 text-sm font-medium"
+          >
+            Направи нов профил
+          </button>
+
+          <button
+            onClick={() => setMode("login")}
+            className="w-full bg-white border border-[#EDE3E0] text-[#2B1B2E] rounded-xl py-3.5 text-sm font-medium"
+          >
+            Најави се на постоечки
           </button>
         </div>
       </div>
     );
   }
-  return (
-    <div className="min-h-full bg-[#FDF9F7] flex flex-col px-6 pt-10 pb-8">
-      <button onClick={()=>setMode("choose")} className="text-[#8B7A8E] flex items-center gap-1 text-sm mb-6"><ChevronLeft size={16}/>Назад</button>
-      <h1 className="font-serif text-[#2B1B2E] text-2xl mb-5" style={{ fontWeight: 600 }}>Нов профил</h1>
-      <AvatarPicker url={avatarUrl} onChange={setAvatarUrl} />
-      <div className="mt-5 flex flex-col gap-3">
-        <TextField value={firstName} onChange={e=>setFirstName(e.target.value)} placeholder="Име" />
-        <TextField value={lastName} onChange={e=>setLastName(e.target.value)} placeholder="Презиме" />
-        <TextField value={phone} onChange={e=>setPhone(e.target.value)} placeholder="Телефон" />
-        <TextField value={email} onChange={e=>setEmail(e.target.value)} placeholder="Е-пошта" type="email" />
-        <TextField value={password} onChange={e=>setPassword(e.target.value)} placeholder="Лозинка" type="password" />
-        <TextField value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} placeholder="Потврди лозинка" type="password" />
-        {error && <p className="text-[#B5566B] text-xs">{error}</p>}
-        <button disabled={loading} onClick={signup} className="mt-2 bg-[#B5566B] text-white rounded-xl py-3.5 text-sm font-medium flex items-center justify-center gap-2">
-          {loading && <Loader2 size={15} className="animate-spin" />} Направи профил
+
+  if (mode === "login") {
+    return (
+      <div className="min-h-full bg-[#FDF9F7] flex flex-col px-6 pt-10 pb-8">
+        <button
+          onClick={() => setMode("choose")}
+          className="text-[#8B7A8E] flex items-center gap-1 text-sm mb-6"
+        >
+          <ChevronLeft size={16} />
+          Назад
         </button>
+
+        <h1
+          className="font-serif text-[#2B1B2E] text-2xl mb-5"
+          style={{ fontWeight: 600 }}
+        >
+          Најава
+        </h1>
+
+        <div className="flex flex-col gap-3">
+          <TextField
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            placeholder="Е-пошта"
+            type="email"
+          />
+
+          <TextField
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            placeholder="Лозинка"
+            type="password"
+          />
+
+          {error && (
+            <p className="text-[#B5566B] text-xs">{error}</p>
+          )}
+
+          <button
+            disabled={loading}
+            onClick={login}
+            className="mt-2 bg-[#B5566B] text-white rounded-xl py-3.5 text-sm font-medium flex items-center justify-center gap-2"
+          >
+            {loading && <Loader2 size={15} className="animate-spin" />}
+            Најави се
+          </button>
+
+          <button
+            onClick={() => setMode("signup")}
+            className="text-[#8B7A8E] text-sm mt-2"
+          >
+            Немаш профил? Направи нов
+          </button>
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
+
+  if (mode === "signup") {
+    return (
+      <div className="min-h-full bg-[#FDF9F7] flex flex-col px-6 pt-10 pb-8">
+        <button
+          onClick={() => setMode("choose")}
+          className="text-[#8B7A8E] flex items-center gap-1 text-sm mb-6"
+        >
+          <ChevronLeft size={16} />
+          Назад
+        </button>
+
+        <h1
+          className="font-serif text-[#2B1B2E] text-2xl mb-5"
+          style={{ fontWeight: 600 }}
+        >
+          Нов профил
+        </h1>
+
+        <AvatarPicker
+          url={avatarUrl}
+          onChange={setAvatarUrl}
+        />
+
+        <div className="mt-5 flex flex-col gap-3">
+          <TextField
+            value={firstName}
+            onChange={e => setFirstName(e.target.value)}
+            placeholder="Име"
+          />
+
+          <TextField
+            value={lastName}
+            onChange={e => setLastName(e.target.value)}
+            placeholder="Презиме"
+          />
+
+          <TextField
+            value={phone}
+            onChange={e => setPhone(e.target.value)}
+            placeholder="Телефон"
+          />
+
+          <TextField
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            placeholder="Е-пошта"
+            type="email"
+          />
+
+          <TextField
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            placeholder="Лозинка"
+            type="password"
+          />
+
+          <TextField
+            value={confirmPassword}
+            onChange={e => setConfirmPassword(e.target.value)}
+            placeholder="Потврди лозинка"
+            type="password"
+          />
+
+          {error && (
+            <p className="text-[#B5566B] text-xs">{error}</p>
+          )}
+
+          <button
+            disabled={loading}
+            onClick={signup}
+            className="mt-2 bg-[#B5566B] text-white rounded-xl py-3.5 text-sm font-medium flex items-center justify-center gap-2"
+          >
+            {loading && <Loader2 size={15} className="animate-spin" />}
+            Направи профил
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
 }
 
 function CompleteClientProfile({ session, onDone, onBack }) {

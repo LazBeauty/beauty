@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   Scissors, MapPin, Search, Star, Calendar, Clock, Check, X,
-  ChevronLeft, Sparkles, Bell, Loader2, Plus, Trash2, Pencil, User, Home, Phone, Info
+  ChevronLeft, Sparkles, Bell, Loader2, Plus, Trash2, Pencil, User, Home, Phone, Info, Eye, EyeOff
 } from "lucide-react";
 import { supabase } from "./lib/supabase";
 
@@ -16,6 +16,8 @@ const CATEGORIES = [
   { id: "pedikir", name: "Педикир", icon: "🦶" },
   { id: "masaza", name: "Масажа на лице", icon: "🧖‍♀️" },
   { id: "vegi", name: "Веѓи / трепки", icon: "👁️" },
+  { id: "shminka", name: "Шминка", icon: "💄" },
+  { id: "frizura", name: "Фризура", icon: "💇‍♀️" },
 ];
 const SUGGESTED_TIMES = ["09:00","10:00","11:00","12:00","13:00","14:00","15:00","16:00","17:00","18:00"];
 const STATUS_LABEL = { pending: "На чекање", accepted: "Прифатено", declined: "Одбиено", cancelled: "Откажано" };
@@ -58,6 +60,21 @@ function Spinner() {
 }
 function TextField(props) {
   return <input {...props} className={"bg-white border border-[#EDE3E0] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#B5566B] " + (props.className || "")} />;
+}
+function PasswordField({ value, onChange, placeholder }) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="relative">
+      <input
+        value={value} onChange={onChange} placeholder={placeholder}
+        type={show ? "text" : "password"}
+        className="w-full bg-white border border-[#EDE3E0] rounded-xl pl-4 pr-11 py-3 text-sm outline-none focus:border-[#B5566B]"
+      />
+      <button type="button" onClick={()=>setShow(s=>!s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#B3A5B5]">
+        {show ? <EyeOff size={16} /> : <Eye size={16} />}
+      </button>
+    </div>
+  );
 }
 function Avatar({ url, name, size = 44 }) {
   return (
@@ -355,7 +372,7 @@ function ClientAuth({ onBack, onSignedUp }) {
         <h1 className="font-serif text-[#2B1B2E] text-2xl" style={{ fontWeight: 600 }}>Најави се</h1>
         <div className="mt-6 flex flex-col gap-3">
           <TextField value={email} onChange={e=>setEmail(e.target.value)} placeholder="Е-пошта" type="email" />
-          <TextField value={password} onChange={e=>setPassword(e.target.value)} placeholder="Лозинка" type="password" />
+          <PasswordField value={password} onChange={e=>setPassword(e.target.value)} placeholder="Лозинка" />
           {error && <p className="text-[#B5566B] text-xs">{error}</p>}
           <button type="button" onClick={()=>{ setResetEmail(email); setError(""); setMode("forgot"); }} className="self-end text-[#B5566B] text-xs font-medium">Заборавена лозинка?</button>
           <button disabled={loading} onClick={login} className="mt-1 bg-[#B5566B] text-white rounded-xl py-3.5 text-sm font-medium flex items-center justify-center gap-2">
@@ -391,8 +408,8 @@ function ClientAuth({ onBack, onSignedUp }) {
         <p className="text-[#8B7A8E] text-sm mt-2">Испративме код од 8 бројки на {resetEmail}.</p>
         <div className="mt-6 flex flex-col gap-3">
           <TextField value={resetCode} onChange={e=>setResetCode(e.target.value)} placeholder="Код од е-поштата" inputMode="numeric" maxLength={8} />
-          <TextField value={newPassword} onChange={e=>setNewPassword(e.target.value)} placeholder="Нова лозинка" type="password" />
-          <TextField value={confirmNewPassword} onChange={e=>setConfirmNewPassword(e.target.value)} placeholder="Потврди нова лозинка" type="password" />
+          <PasswordField value={newPassword} onChange={e=>setNewPassword(e.target.value)} placeholder="Нова лозинка" />
+          <PasswordField value={confirmNewPassword} onChange={e=>setConfirmNewPassword(e.target.value)} placeholder="Потврди нова лозинка" />
           {error && <p className="text-[#B5566B] text-xs">{error}</p>}
           <button disabled={loading} onClick={confirmReset} className="mt-1 bg-[#B5566B] text-white rounded-xl py-3.5 text-sm font-medium flex items-center justify-center gap-2">
             {loading && <Loader2 size={15} className="animate-spin" />} Постави лозинка
@@ -411,8 +428,8 @@ function ClientAuth({ onBack, onSignedUp }) {
         <TextField value={lastName} onChange={e=>setLastName(e.target.value)} placeholder="Презиме" />
         <TextField value={phone} onChange={e=>setPhone(e.target.value)} placeholder="Телефон" />
         <TextField value={email} onChange={e=>setEmail(e.target.value)} placeholder="Е-пошта" type="email" />
-        <TextField value={password} onChange={e=>setPassword(e.target.value)} placeholder="Лозинка" type="password" />
-        <TextField value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} placeholder="Потврди лозинка" type="password" />
+        <PasswordField value={password} onChange={e=>setPassword(e.target.value)} placeholder="Лозинка" />
+        <PasswordField value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} placeholder="Потврди лозинка" />
         {error && <p className="text-[#B5566B] text-xs">{error}</p>}
         <button disabled={loading} onClick={signup} className="mt-2 bg-[#B5566B] text-white rounded-xl py-3.5 text-sm font-medium flex items-center justify-center gap-2">
           {loading && <Loader2 size={15} className="animate-spin" />} Продолжи
@@ -445,8 +462,8 @@ function ChangePasswordSection() {
   return (
     <div className="mt-1 pt-4 border-t border-[#EDE3E0] flex flex-col gap-3">
       <div className="text-[#6B5A6E] text-xs font-medium uppercase tracking-wide">Смени лозинка</div>
-      <TextField value={newPassword} onChange={e=>setNewPassword(e.target.value)} placeholder="Нова лозинка" type="password" />
-      <TextField value={confirmNewPassword} onChange={e=>setConfirmNewPassword(e.target.value)} placeholder="Потврди нова лозинка" type="password" />
+      <PasswordField value={newPassword} onChange={e=>setNewPassword(e.target.value)} placeholder="Нова лозинка" />
+      <PasswordField value={confirmNewPassword} onChange={e=>setConfirmNewPassword(e.target.value)} placeholder="Потврди нова лозинка" />
       {msg && <p className="text-[#B5566B] text-xs">{msg}</p>}
       <button disabled={saving} onClick={changePassword} className="py-3 rounded-xl border border-[#EDE3E0] text-[#2B1B2E] text-sm font-medium flex items-center justify-center gap-2">
         {saving && <Loader2 size={15} className="animate-spin"/>} Смени лозинка
@@ -538,6 +555,13 @@ function RatingModal({ booking, onDone }) {
 }
 
 function ProviderProfileModal({ provider, onClose }) {
+  const [reviews, setReviews] = useState([]);
+  const [loadingReviews, setLoadingReviews] = useState(true);
+  useEffect(() => {
+    supabase.from("bookings").select("client_name, rating, review, created_at").eq("provider_id", provider.id).gt("rating", 0).order("created_at", { ascending: false })
+      .then(({ data, error }) => { if (error) console.error(error); setReviews(data || []); setLoadingReviews(false); });
+  }, [provider.id]);
+
   return (
     <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 px-6 pb-6 sm:pb-0">
       <div className="bg-white rounded-2xl p-6 w-full max-w-sm max-h-[80vh] overflow-y-auto">
@@ -558,6 +582,26 @@ function ProviderProfileModal({ provider, onClose }) {
             <div className="flex items-center gap-2 text-sm text-[#2B1B2E]"><MapPin size={14} className="text-[#B5566B]"/>{provider.address}</div>
           )}
         </div>
+
+        <div className="mt-5 pt-5 border-t border-[#EDE3E0]">
+          <div className="text-[#6B5A6E] text-xs font-medium mb-2 uppercase tracking-wide">Оценки од клиенти{reviews.length > 0 ? ` (${reviews.length})` : ""}</div>
+          {loadingReviews ? <Spinner /> : reviews.length === 0 ? (
+            <p className="text-[#B3A5B5] text-sm text-center py-4">Сеуште нема оценки.</p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {reviews.map((r, i) => (
+                <div key={i} className="bg-[#FDF9F7] border border-[#EDE3E0] rounded-xl p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-[#2B1B2E]">{r.client_name}</span>
+                    <div className="flex">{Array.from({length:5}).map((_,idx)=>(<Star key={idx} size={11} className={idx < r.rating ? "fill-[#B5566B] text-[#B5566B]" : "text-[#DDD2D5]"} />))}</div>
+                  </div>
+                  {r.review && <p className="text-[#8B7A8E] text-xs mt-1">{r.review}</p>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         <button onClick={onClose} className="mt-6 w-full py-3 rounded-xl border border-[#EDE3E0] text-[#8B7A8E] text-sm font-medium">Затвори</button>
       </div>
     </div>
@@ -708,7 +752,7 @@ function MyBookings({ client }) {
 
   return (
     <div className="px-6 py-4 flex flex-col gap-3">
-      {bookings.length === 0 && <p className="text-[#B3A5B5] text-sm text-center pt-8">Сеуште немаш закажано ништо.</p>}
+      {bookings.length === 0 && <p className="text-[#B3A5B5] text-sm text-center pt-8">Сѐуште немаш закажано ништо.</p>}
       {bookings.map(b => (
         <div key={b.id} className="bg-white border border-[#EDE3E0] rounded-2xl p-4">
           <div className="flex items-center justify-between">
@@ -1137,7 +1181,7 @@ function ProviderAuth({ onBack, onSignedUp }) {
         <h1 className="font-serif text-[#2B1B2E] text-2xl" style={{ fontWeight: 600 }}>Најави се</h1>
         <div className="mt-6 flex flex-col gap-3">
           <TextField value={email} onChange={e=>setEmail(e.target.value)} placeholder="Е-пошта" type="email" />
-          <TextField value={password} onChange={e=>setPassword(e.target.value)} placeholder="Лозинка" type="password" />
+          <PasswordField value={password} onChange={e=>setPassword(e.target.value)} placeholder="Лозинка" />
           {error && <p className="text-[#B5566B] text-xs">{error}</p>}
           <button type="button" onClick={()=>{ setResetEmail(email); setError(""); setMode("forgot"); }} className="self-end text-[#B5566B] text-xs font-medium">Заборавена лозинка?</button>
           <button disabled={loading} onClick={login} className="mt-1 bg-[#B5566B] text-white rounded-xl py-3.5 text-sm font-medium flex items-center justify-center gap-2">
@@ -1173,8 +1217,8 @@ function ProviderAuth({ onBack, onSignedUp }) {
         <p className="text-[#8B7A8E] text-sm mt-2">Испративме код од 8 бројки на {resetEmail}.</p>
         <div className="mt-6 flex flex-col gap-3">
           <TextField value={resetCode} onChange={e=>setResetCode(e.target.value)} placeholder="Код од е-поштата" inputMode="numeric" maxLength={8} />
-          <TextField value={newPassword} onChange={e=>setNewPassword(e.target.value)} placeholder="Нова лозинка" type="password" />
-          <TextField value={confirmNewPassword} onChange={e=>setConfirmNewPassword(e.target.value)} placeholder="Потврди нова лозинка" type="password" />
+          <PasswordField value={newPassword} onChange={e=>setNewPassword(e.target.value)} placeholder="Нова лозинка" />
+          <PasswordField value={confirmNewPassword} onChange={e=>setConfirmNewPassword(e.target.value)} placeholder="Потврди нова лозинка" />
           {error && <p className="text-[#B5566B] text-xs">{error}</p>}
           <button disabled={loading} onClick={confirmReset} className="mt-1 bg-[#B5566B] text-white rounded-xl py-3.5 text-sm font-medium flex items-center justify-center gap-2">
             {loading && <Loader2 size={15} className="animate-spin" />} Постави лозинка
@@ -1198,8 +1242,8 @@ function ProviderAuth({ onBack, onSignedUp }) {
         <TextField value={email} onChange={e=>setEmail(e.target.value)} placeholder="Е-пошта" type="email" />
         <textarea value={bio} onChange={e=>setBio(e.target.value)} placeholder="Кратко за тебе (опционално)" rows={3}
           className="bg-white border border-[#EDE3E0] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#B5566B] resize-none" />
-        <TextField value={password} onChange={e=>setPassword(e.target.value)} placeholder="Лозинка" type="password" />
-        <TextField value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} placeholder="Потврди лозинка" type="password" />
+        <PasswordField value={password} onChange={e=>setPassword(e.target.value)} placeholder="Лозинка" />
+        <PasswordField value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} placeholder="Потврди лозинка" />
         {error && <p className="text-[#B5566B] text-xs">{error}</p>}
         <button disabled={loading} onClick={signup} className="mt-2 bg-[#B5566B] text-white rounded-xl py-3.5 text-sm font-medium flex items-center justify-center gap-2">
           {loading && <Loader2 size={15} className="animate-spin" />} Продолжи
@@ -1486,7 +1530,41 @@ function ProviderPortfolio({ providerId, category }) {
 }
 
 // ---------------- Provider home ----------------
+function ProviderReviewsModal({ providerId, onClose }) {
+  const [reviews, setReviews] = useState([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    supabase.from("bookings").select("client_name, rating, review, created_at").eq("provider_id", providerId).gt("rating", 0).order("created_at", { ascending: false })
+      .then(({ data, error }) => { if (error) console.error(error); setReviews(data || []); setLoading(false); });
+  }, [providerId]);
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 px-6 pb-6 sm:pb-0">
+      <div className="bg-white rounded-2xl p-6 w-full max-w-sm max-h-[75vh] overflow-y-auto">
+        <h3 className="font-serif text-[#2B1B2E] text-lg mb-4" style={{fontWeight:600}}>Оценки {reviews.length > 0 ? `(${reviews.length})` : ""}</h3>
+        {loading ? <Spinner /> : reviews.length === 0 ? (
+          <p className="text-[#B3A5B5] text-sm text-center py-6">Сеуште немате оценка.</p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {reviews.map((r, i) => (
+              <div key={i} className="bg-[#FDF9F7] border border-[#EDE3E0] rounded-xl p-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-[#2B1B2E]">{r.client_name}</span>
+                  <div className="flex">{Array.from({length:5}).map((_,idx)=>(<Star key={idx} size={11} className={idx < r.rating ? "fill-[#B5566B] text-[#B5566B]" : "text-[#DDD2D5]"} />))}</div>
+                </div>
+                {r.review && <p className="text-[#8B7A8E] text-xs mt-1">{r.review}</p>}
+              </div>
+            ))}
+          </div>
+        )}
+        <button onClick={onClose} className="mt-5 w-full py-3 rounded-xl border border-[#EDE3E0] text-[#8B7A8E] text-sm font-medium">Затвори</button>
+      </div>
+    </div>
+  );
+}
+
 function ProviderHomeScreen({ provider, pendingCount, upcomingCount, goTab }) {
+  const [showReviews, setShowReviews] = useState(false);
   return (
     <div className="flex flex-col gap-4">
       <div className="bg-white border border-[#EDE3E0] rounded-2xl p-5">
@@ -1503,11 +1581,12 @@ function ProviderHomeScreen({ provider, pendingCount, upcomingCount, goTab }) {
           <div className="font-serif text-[#2B1B2E] text-lg" style={{fontWeight:600}}>{upcomingCount}</div>
           <div className="text-[#8B7A8E] text-[10px] mt-0.5">Закажани</div>
         </div>
-        <div className="bg-white border border-[#EDE3E0] rounded-xl p-3 text-center">
+        <button onClick={()=>setShowReviews(true)} className="bg-white border border-[#EDE3E0] rounded-xl p-3 text-center hover:border-[#B5566B] transition-colors">
           <div className="font-serif text-[#2B1B2E] text-lg flex items-center justify-center gap-1" style={{fontWeight:600}}><Star size={13} className="fill-[#B5566B] text-[#B5566B]"/>{provider.rating}</div>
           <div className="text-[#8B7A8E] text-[10px] mt-0.5">Оценка</div>
-        </div>
+        </button>
       </div>
+      {showReviews && <ProviderReviewsModal providerId={provider.id} onClose={()=>setShowReviews(false)} />}
       <div className="grid grid-cols-2 gap-3">
         <button onClick={()=>goTab("notifications")} className="bg-white border border-[#EDE3E0] rounded-2xl p-4 text-left hover:border-[#B5566B] transition-colors">
           <Bell size={18} className="text-[#B5566B] mb-2" />

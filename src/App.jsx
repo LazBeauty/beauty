@@ -197,20 +197,36 @@ function MonthCalendar({ selectedDate, onSelect, availableDates }) {
 }
 
 // ---------------- Role select ----------------
+function FloatingDecor() {
+  const items = [
+
+  ];
+  return (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      {items.map((it, i) => (
+        <span key={i} className="termin-float" style={{ top: it.top, left: it.left, fontSize: it.size, animationDelay: it.delay, animationDuration: it.duration }}>
+          {it.emoji}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function RoleSelect({ onPick }) {
   return (
-    <div className="min-h-full flex flex-col bg-[#FDF9F7] px-6 pt-10 pb-8">
+    <div className="min-h-full flex flex-col bg-[#FDF9F7] px-6 pt-10 pb-8 relative overflow-hidden">
+      <FloatingDecor />
       <Logo size={26} />
-      <div className="mt-10">
+      <div className="mt-10 relative">
         <h1 className="font-serif text-[#2B1B2E] text-3xl leading-tight" style={{ fontWeight: 600 }}>
           Убавина,<br/>закажана лесно.
         </h1>
         <p className="text-[#6B5A6E] mt-3 text-[15px] leading-relaxed">
-          Поврзи се со салони и Artist-и за нокти, масажа и веѓи низ цела Македонија — или понуди сопствена услуга.
+          Поврзи се со салони и Artist-и за нокти,шминка, фризура, масажа и веѓи низ цела Македонија — или понуди сопствена услуга.
         </p>
       </div>
-      <div className="mt-10 flex flex-col gap-4">
-        <button onClick={() => onPick("client")} className="group text-left rounded-2xl border border-[#EDE3E0] bg-white p-5 flex items-center gap-4 hover:border-[#B5566B] transition-colors">
+      <div className="mt-10 flex flex-col gap-4 relative">
+        <button onClick={() => onPick("client")} className="group text-left rounded-2xl border border-[#EDE3E0] bg-white p-5 flex items-center gap-4 hover:border-[#B5566B] hover:-translate-y-0.5 transition-all">
           <div className="w-12 h-12 rounded-xl bg-[#F2D9CE] flex items-center justify-center shrink-0">
             <Search size={20} className="text-[#8A4A5A]" />
           </div>
@@ -219,7 +235,7 @@ function RoleSelect({ onPick }) {
             <div className="text-[#8B7A8E] text-sm">Пронајди и закажи термин</div>
           </div>
         </button>
-        <button onClick={() => onPick("provider")} className="group text-left rounded-2xl border border-[#EDE3E0] bg-white p-5 flex items-center gap-4 hover:border-[#B5566B] transition-colors">
+        <button onClick={() => onPick("provider")} className="group text-left rounded-2xl border border-[#EDE3E0] bg-white p-5 flex items-center gap-4 hover:border-[#B5566B] hover:-translate-y-0.5 transition-all">
           <div className="w-12 h-12 rounded-xl bg-[#DCE6DE] flex items-center justify-center shrink-0">
             <Scissors size={20} className="text-[#4A6B54]" />
           </div>
@@ -229,7 +245,7 @@ function RoleSelect({ onPick }) {
           </div>
         </button>
       </div>
-      <p className="text-[#B3A5B5] text-xs mt-auto pt-10 text-center">Termin · твоите резервации се реални и се зачувуваат</p>
+      <p className="text-[#B3A5B5] text-xs mt-auto pt-10 text-center relative">Termin · твоите резервации се реални и се зачувуваат</p>
     </div>
   );
 }
@@ -472,6 +488,65 @@ function ChangePasswordSection() {
   );
 }
 
+function DeleteAccountModal({ onConfirm, onCancel, deleting, error }) {
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 px-6 pb-6 sm:pb-0">
+      <div className="bg-white rounded-2xl p-6 w-full max-w-sm">
+        <h3 className="font-serif text-[#2B1B2E] text-lg" style={{fontWeight:600}}>Бришење на профилот</h3>
+        <p className="text-[#6B5A6E] text-sm mt-2 leading-relaxed">
+          Дали навистина сакате трајно да го избришете вашиот профил? Сите ваши податоци (термини, услуги, оценки) ќе бидат трајно избришани. Оваа акција не може да се врати.
+        </p>
+        {error && <p className="text-[#B5566B] text-xs mt-2">{error}</p>}
+        <div className="flex gap-2 mt-5">
+          <button disabled={deleting} onClick={onCancel} className="flex-1 py-3 rounded-xl border border-[#EDE3E0] text-[#2B1B2E] text-sm font-medium">Не</button>
+          <button disabled={deleting} onClick={onConfirm} className="flex-1 py-3 rounded-xl bg-[#B5566B] text-white text-sm font-medium flex items-center justify-center gap-2">
+            {deleting && <Loader2 size={14} className="animate-spin"/>} Да, избриши
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DeleteAccountSection({ onDeleted }) {
+  const [open, setOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState("");
+
+  const confirmDelete = async () => {
+    setDeleting(true);
+    setError("");
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-account`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (!res.ok) throw new Error("failed");
+      await supabase.auth.signOut();
+      onDeleted();
+    } catch (e) {
+      console.error(e);
+      setError("Настана грешка, обиди се повторно.");
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <>
+      <button onClick={()=>setOpen(true)} className="py-3 rounded-xl border border-[#F2DCDC] text-[#B5566B] text-sm font-medium">Избриши сметка</button>
+      {open && (
+        <DeleteAccountModal
+          deleting={deleting}
+          error={error}
+          onCancel={()=>{ if (!deleting) setOpen(false); }}
+          onConfirm={confirmDelete}
+        />
+      )}
+    </>
+  );
+}
+
 function ClientProfile({ client, onSaved, onLogout }) {
   const [name, setName] = useState(client.name);
   const [phone, setPhone] = useState(client.phone);
@@ -495,6 +570,7 @@ function ClientProfile({ client, onSaved, onLogout }) {
       </button>
       <ChangePasswordSection />
       <button onClick={onLogout} className="mt-2 py-3 rounded-xl border border-[#EDE3E0] text-[#8B7A8E] text-sm font-medium">Одјави се</button>
+      <DeleteAccountSection onDeleted={onLogout} />
     </div>
   );
 }
@@ -643,8 +719,10 @@ function ClientHomeScreen({ client, goSearch, goBookings }) {
   }, [client.id]);
 
   return (
-    <div className="px-6 py-4 flex flex-col gap-4">
-      <div className="bg-white border border-[#EDE3E0] rounded-2xl p-5">
+    <div className="px-6 py-4 flex flex-col gap-4 relative overflow-hidden">
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      </div>
+      <div className="bg-white border border-[#EDE3E0] rounded-2xl p-5 relative">
         <div className="text-[#8B7A8E] text-xs">Здраво,</div>
         <div className="font-serif text-[#2B1B2E] text-xl mt-0.5" style={{fontWeight:600}}>{client.name.split(" ")[0]} 👋</div>
         <p className="text-[#8B7A8E] text-sm mt-2">Пронајди Artist за нокти, педикир или масажа блиску до тебе.</p>
@@ -1289,6 +1367,7 @@ function ProviderProfile({ provider, onSaved, onLogout }) {
       </button>
       <ChangePasswordSection />
       <button onClick={onLogout} className="mt-2 py-3 rounded-xl border border-[#EDE3E0] text-[#8B7A8E] text-sm font-medium">Одјави се</button>
+      <DeleteAccountSection onDeleted={onLogout} />
     </div>
   );
 }
@@ -1566,13 +1645,17 @@ function ProviderReviewsModal({ providerId, onClose }) {
 function ProviderHomeScreen({ provider, pendingCount, upcomingCount, goTab }) {
   const [showReviews, setShowReviews] = useState(false);
   return (
-    <div className="flex flex-col gap-4">
-      <div className="bg-white border border-[#EDE3E0] rounded-2xl p-5">
+    <div className="flex flex-col gap-4 relative overflow-hidden">
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <span className="termin-float" style={{ top: "0%", left: "88%", fontSize: 20, animationDelay: "0.4s", animationDuration: "8s" }}>💅</span>
+        <span className="termin-float" style={{ top: "20%", left: "2%", fontSize: 18, animationDelay: "1.8s", animationDuration: "7.5s" }}>✨</span>
+      </div>
+      <div className="bg-white border border-[#EDE3E0] rounded-2xl p-5 relative">
         <div className="text-[#8B7A8E] text-xs">Здраво,</div>
         <div className="font-serif text-[#2B1B2E] text-xl mt-0.5" style={{fontWeight:600}}>{provider.name.split(" ")[0]} 👋</div>
         <p className="text-[#8B7A8E] text-sm mt-2">{provider.salon} · {provider.city}</p>
       </div>
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-3 gap-2 relative">
         <div className="bg-white border border-[#EDE3E0] rounded-xl p-3 text-center">
           <div className="font-serif text-[#2B1B2E] text-lg" style={{fontWeight:600}}>{pendingCount}</div>
           <div className="text-[#8B7A8E] text-[10px] mt-0.5">Нови барања</div>

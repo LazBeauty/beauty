@@ -20,6 +20,44 @@ const CATEGORIES = [
   { id: "frizura", name: "Фризура", icon: "💇‍♀️" },
 ];
 const SUGGESTED_TIMES = ["09:00","10:00","11:00","12:00","13:00","14:00","15:00","16:00","17:00","18:00"];
+
+// ---------------- Plans (providers only pay; clients are always free) ----------------
+const PLAN_FREE = "free";
+const PLAN_PRO = "pro";
+const PRO_PRICE_MKD = 699;
+const FREE_MONTHLY_BOOKING_LIMIT = 5;
+const isPro = (provider) => provider?.plan === PLAN_PRO;
+// Counts bookings that occupy a "slot" this calendar month for the free-plan cap.
+// pending + accepted both count, since a pending request already reserves the provider's time.
+const monthlyBookingCount = (bookings, ym = new Date().toISOString().slice(0, 7)) =>
+  bookings.filter(b => (b.status === "pending" || b.status === "accepted") && (b.date || "").slice(0, 7) === ym).length;
+
+// ---------------- Payments (DISABLED — no gateway wired up yet) ----------------
+// The app is free for every provider right now. When you're ready to charge for
+// the Pro plan, pick a payment provider that supports MKD/local cards (e.g. CPay,
+// NLB/Halk merchant checkout, or Stripe if you invoice in EUR) and un-comment the
+// flow below. It's written against a Supabase Edge Function called "create-checkout"
+// that you'd deploy separately — never put a secret key in client code.
+//
+// async function startProUpgradeCheckout(provider) {
+//   const { data, error } = await supabase.functions.invoke("create-checkout", {
+//     body: { provider_id: provider.id, plan: PLAN_PRO, amount: PRO_PRICE_MKD, currency: "MKD" },
+//   });
+//   if (error) { console.error(error); alert("Плаќањето не успеа, обиди се повторно."); return; }
+//   window.location.href = data.checkout_url; // redirect to the hosted payment page
+// }
+//
+// // The Edge Function would confirm payment via the gateway's webhook, then run:
+// //   await supabase.from("providers").update({ plan: "pro", plan_renews_at: <date> }).eq("id", provider_id);
+//
+// function ProUpgradeButton({ provider }) {
+//   return <button onClick={() => startProUpgradeCheckout(provider)}>Надгради на Про — {PRO_PRICE_MKD} ден./месец</button>;
+// }
+
+// Placeholder used until the real checkout above is wired up.
+function requestProUpgrade() {
+  alert(`Плаќањата допрва доаѓаат. Про планот (${PRO_PRICE_MKD} ден./месец, неограничени термини и слики) наскоро ќе биде достапен за надградба директно во апликацијата.`);
+}
 const STATUS_LABEL = { pending: "На чекање", accepted: "Прифатено", declined: "Одбиено", cancelled: "Откажано" };
 const STATUS_COLOR = {
   pending: "bg-[#F5E9C8] text-[#8A6D1D]",
@@ -197,6 +235,7 @@ function MonthCalendar({ selectedDate, onSelect, availableDates }) {
 }
 
 // ---------------- Role select ----------------
+/*
 function FloatingDecor() {
   const items = [
 
@@ -210,7 +249,7 @@ function FloatingDecor() {
       ))}
     </div>
   );
-}
+}*/
 
 function RoleSelect({ onPick }) {
   return (
@@ -231,7 +270,10 @@ function RoleSelect({ onPick }) {
             <Search size={20} className="text-[#8A4A5A]" />
           </div>
           <div>
-            <div className="font-serif text-[#2B1B2E] text-lg" style={{ fontWeight: 600 }}>Ми треба услуга</div>
+            <div className="flex items-center gap-2">
+              <div className="font-serif text-[#2B1B2E] text-lg" style={{ fontWeight: 600 }}>Ми треба услуга</div>
+              <span className="role-label text-[#B5566B] text-sm">Client</span>
+            </div>
             <div className="text-[#8B7A8E] text-sm">Пронајди и закажи термин</div>
           </div>
         </button>
@@ -240,7 +282,10 @@ function RoleSelect({ onPick }) {
             <Scissors size={20} className="text-[#4A6B54]" />
           </div>
           <div>
-            <div className="font-serif text-[#2B1B2E] text-lg" style={{ fontWeight: 600 }}>Давам услуга</div>
+            <div className="flex items-center gap-2">
+              <div className="font-serif text-[#2B1B2E] text-lg" style={{ fontWeight: 600 }}>Давам услуга</div>
+              <span className="role-label text-[#4A6B54] text-sm">Artist</span>
+            </div>
             <div className="text-[#8B7A8E] text-sm">Прими нарачки и управувај со термини</div>
           </div>
         </button>
@@ -370,7 +415,7 @@ function ClientAuth({ onBack, onSignedUp }) {
       <div className="min-h-full bg-[#FDF9F7] flex flex-col px-6 pt-10 pb-8 items-center text-center">
         <button onClick={onBack} className="self-start text-[#8B7A8E] flex items-center gap-1 text-sm mb-6"><ChevronLeft size={16}/>Назад</button>
         <Logo size={26} />
-        <h1 className="font-serif text-[#2B1B2E] text-2xl mt-8" style={{ fontWeight: 600 }}>Твојот профил</h1>
+        <h1 className="font-serif text-[#2B1B2E] text-2xl mt-8" style={{ fontWeight: 600 }}>Client</h1>
         <p className="text-[#8B7A8E] text-sm mt-2">За да закажуваш и да ги гледаш твоите термини.</p>
         <div className="mt-8 w-full flex flex-col gap-3">
           <button onClick={()=>setMode("signup")} className="w-full bg-[#B5566B] text-white rounded-xl py-3.5 text-sm font-medium">Направи нов профил</button>
@@ -1242,7 +1287,7 @@ function ProviderAuth({ onBack, onSignedUp }) {
       <div className="min-h-full bg-[#FDF9F7] flex flex-col px-6 pt-10 pb-8 items-center text-center">
         <button onClick={onBack} className="self-start text-[#8B7A8E] flex items-center gap-1 text-sm mb-6"><ChevronLeft size={16}/>Назад</button>
         <Logo size={26} />
-        <h1 className="font-serif text-[#2B1B2E] text-2xl mt-8" style={{ fontWeight: 600 }}>Профил за давател</h1>
+        <h1 className="font-serif text-[#2B1B2E] text-2xl mt-8" style={{ fontWeight: 600 }}>Профил за Artist</h1>
         <div className="mt-8 w-full flex flex-col gap-3">
           <button onClick={()=>setMode("signup")} className="w-full bg-[#B5566B] text-white rounded-xl py-3.5 text-sm font-medium">Направи нов профил</button>
           <button onClick={()=>setMode("login")} className="w-full bg-white border border-[#EDE3E0] text-[#2B1B2E] rounded-xl py-3.5 text-sm font-medium">Најави се на постоечки</button>
@@ -1353,6 +1398,17 @@ function ProviderProfile({ provider, onSaved, onLogout }) {
   };
   return (
     <div className="flex flex-col gap-4">
+      <div className="bg-white border border-[#EDE3E0] rounded-2xl p-4 flex items-center justify-between">
+        <div>
+          <div className="text-[#8B7A8E] text-xs uppercase tracking-wide">Твојот план</div>
+          <div className="text-[#2B1B2E] text-sm font-medium mt-0.5">
+            {isPro(provider) ? "Про — неограничено" : `Бесплатен — до ${FREE_MONTHLY_BOOKING_LIMIT} термини/месец`}
+          </div>
+        </div>
+        {!isPro(provider) && (
+          <button onClick={requestProUpgrade} className="px-4 py-2 rounded-xl bg-[#B5566B] text-white text-xs font-medium shrink-0">Надгради</button>
+        )}
+      </div>
       <AvatarPicker url={avatarUrl} onChange={setAvatarUrl} />
       <TextField value={name} onChange={e=>setName(e.target.value)} placeholder="Твоето име" />
       <TextField value={salon} onChange={e=>setSalon(e.target.value)} placeholder="Име на салон/бренд" />
@@ -1519,6 +1575,16 @@ function AvailabilityManager({ provider }) {
 // ---------------- Portfolio (provider manages, client views) ----------------
 function PortfolioManager({ provider }) {
   const [category, setCategory] = useState(CATEGORIES[0].id);
+  if (!isPro(provider)) {
+    return (
+      <div className="flex flex-col items-center text-center gap-3 pt-10 px-4">
+        <div className="w-14 h-14 rounded-2xl bg-[#F2D9CE] flex items-center justify-center"><Sparkles size={22} className="text-[#8A4A5A]" /></div>
+        <p className="text-[#2B1B2E] text-sm font-medium">Прикачувањето слики е дел од Про планот</p>
+        <p className="text-[#8B7A8E] text-xs max-w-[240px]">Надгради на Про ({PRO_PRICE_MKD} ден./месец) за неограничени термини и портфолио со твоите работи.</p>
+        <button onClick={requestProUpgrade} className="mt-2 px-5 py-2.5 rounded-xl bg-[#B5566B] text-white text-xs font-medium">Надгради на Про</button>
+      </div>
+    );
+  }
   const [photos, setPhotos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -1736,6 +1802,10 @@ function ProviderDashboard({ provider: initialProvider, onLogout }) {
   }, [provider.id]);
 
   const respond = async (booking, status) => {
+    if (status === "accepted" && !isPro(provider) && monthlyBookingCount(bookings) >= FREE_MONTHLY_BOOKING_LIMIT) {
+      alert(`Го достигна лимитот од ${FREE_MONTHLY_BOOKING_LIMIT} термини овој месец на бесплатниот план. Надгради на Про за неограничени термини.`);
+      return;
+    }
     setBookings(prev => prev.map(b => b.id === booking.id ? { ...b, status } : b));
     const { error } = await supabase.from("bookings").update({ status }).eq("id", booking.id);
     if (error) { console.error(error); loadBookings(); return; }
@@ -1770,7 +1840,10 @@ function ProviderDashboard({ provider: initialProvider, onLogout }) {
   };
 
   const pending = bookings.filter(b => b.status === "pending");
-  const upcoming = bookings.filter(b => b.status === "accepted");
+  const accepted = bookings.filter(b => b.status === "accepted");
+  const upcoming = accepted.filter(b => isFutureSlot(b.date, b.time));
+  const past = accepted.filter(b => !isFutureSlot(b.date, b.time));
+  const [scheduledView, setScheduledView] = useState("ongoing"); // "ongoing" | "past"
   const cancelledUnseen = bookings.filter(b => b.status === "cancelled" && b.provider_notified === false);
   const notifCount = pending.length + cancelledUnseen.length;
 
@@ -1882,26 +1955,59 @@ function ProviderDashboard({ provider: initialProvider, onLogout }) {
         {tab === "upcoming" && (
           loading ? <Spinner /> : (
             <div className="flex flex-col gap-3">
-              {upcoming.length === 0 && <p className="text-[#B3A5B5] text-sm text-center pt-8">Нема закажани термини.</p>}
-              {upcoming.map(b => (
-                <div key={b.id} className="bg-white border border-[#EDE3E0] rounded-2xl p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <Avatar name={b.client_name} size={36} />
-                      <div>
-                        <div className="text-[#2B1B2E] text-sm font-medium">{b.client_name}</div>
-                        <div className="text-[#8B7A8E] text-xs">{catInfo(b.category).icon} {b.service_name} · {b.client_phone}</div>
+              <div className="flex gap-1.5 bg-[#F2EAE7] rounded-xl p-1 mb-1">
+                <button onClick={()=>setScheduledView("ongoing")} className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${scheduledView==="ongoing" ? "bg-white text-[#2B1B2E] shadow-sm" : "text-[#8B7A8E]"}`}>Во тек ({upcoming.length})</button>
+                <button onClick={()=>setScheduledView("past")} className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${scheduledView==="past" ? "bg-white text-[#2B1B2E] shadow-sm" : "text-[#8B7A8E]"}`}>Минати ({past.length})</button>
+              </div>
+
+              {scheduledView === "ongoing" && (
+                <>
+                  {upcoming.length === 0 && <p className="text-[#B3A5B5] text-sm text-center pt-8">Нема закажани термини.</p>}
+                  {upcoming.map(b => (
+                    <div key={b.id} className="bg-white border border-[#EDE3E0] rounded-2xl p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2.5">
+                          <Avatar name={b.client_name} size={36} />
+                          <div>
+                            <div className="text-[#2B1B2E] text-sm font-medium">{b.client_name}</div>
+                            <div className="text-[#8B7A8E] text-xs">{catInfo(b.category).icon} {b.service_name} · {b.client_phone}</div>
+                          </div>
+                        </div>
+                        <span className="text-[#2B1B2E] text-sm font-medium">{fmt(b.price)}</span>
+                      </div>
+                      <div className="flex items-center gap-3 mt-2.5 text-xs text-[#8B7A8E]">
+                        <span className="flex items-center gap-1"><Calendar size={12}/>{b.day}</span>
+                        <span className="flex items-center gap-1"><Clock size={12}/>{b.time}</span>
+                      </div>
+                      <button onClick={()=>setCancelling(b)} className="mt-3 w-full py-2 rounded-xl border border-[#EDE3E0] text-[#B5566B] text-xs font-medium">Откажи термин</button>
+                    </div>
+                  ))}
+                </>
+              )}
+
+              {scheduledView === "past" && (
+                <>
+                  {past.length === 0 && <p className="text-[#B3A5B5] text-sm text-center pt-8">Сѐуште нема минати термини.</p>}
+                  {past.map(b => (
+                    <div key={b.id} className="is-past bg-white border border-[#EDE3E0] rounded-2xl p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2.5">
+                          <Avatar name={b.client_name} size={36} />
+                          <div>
+                            <div className="text-[#2B1B2E] text-sm font-medium">{b.client_name}</div>
+                            <div className="text-[#8B7A8E] text-xs">{catInfo(b.category).icon} {b.service_name} · {b.client_phone}</div>
+                          </div>
+                        </div>
+                        <span className="text-[#2B1B2E] text-sm font-medium">{fmt(b.price)}</span>
+                      </div>
+                      <div className="flex items-center gap-3 mt-2.5 text-xs text-[#8B7A8E]">
+                        <span className="flex items-center gap-1"><Calendar size={12}/>{b.day}</span>
+                        <span className="flex items-center gap-1"><Clock size={12}/>{b.time}</span>
                       </div>
                     </div>
-                    <span className="text-[#2B1B2E] text-sm font-medium">{fmt(b.price)}</span>
-                  </div>
-                  <div className="flex items-center gap-3 mt-2.5 text-xs text-[#8B7A8E]">
-                    <span className="flex items-center gap-1"><Calendar size={12}/>{b.day}</span>
-                    <span className="flex items-center gap-1"><Clock size={12}/>{b.time}</span>
-                  </div>
-                  <button onClick={()=>setCancelling(b)} className="mt-3 w-full py-2 rounded-xl border border-[#EDE3E0] text-[#B5566B] text-xs font-medium">Откажи термин</button>
-                </div>
-              ))}
+                  ))}
+                </>
+              )}
             </div>
           )
         )}

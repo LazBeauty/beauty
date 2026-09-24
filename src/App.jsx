@@ -25,7 +25,7 @@ const SUGGESTED_TIMES = ["09:00","10:00","11:00","12:00","13:00","14:00","15:00"
 const PLAN_FREE = "free";
 const PLAN_PRO = "pro";
 const PRO_PRICE_MKD = 699;
-const FREE_MONTHLY_BOOKING_LIMIT = 5;
+const FREE_MONTHLY_BOOKING_LIMIT = 90;
 const isPro = (provider) => provider?.plan === PLAN_PRO;
 // Counts bookings that occupy a "slot" this calendar month for the free-plan cap.
 // pending + accepted both count, since a pending request already reserves the provider's time.

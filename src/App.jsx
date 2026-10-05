@@ -235,7 +235,7 @@ function MonthCalendar({ selectedDate, onSelect, availableDates }) {
 }
 
 // ---------------- Role select ----------------
-/*
+
 function FloatingDecor() {
   const items = [
 
@@ -249,7 +249,7 @@ function FloatingDecor() {
       ))}
     </div>
   );
-}*/
+}
 
 function RoleSelect({ onPick }) {
   return (

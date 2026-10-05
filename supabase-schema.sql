@@ -1,5 +1,5 @@
 -- =========================================================
--- TERMIN - CLEAN DATABASE SCHEMA
+-- TERMIN - CLEAN DATABASE SCHEMA (merged, single source of truth)
 -- Fresh setup for Supabase
 -- Google / Email authentication
 -- =========================================================
@@ -50,8 +50,14 @@ create table public.providers (
 
   -- Business
   rating numeric not null default 5.0,
-  services jsonb not null default '{}'::jsonb,
+  services jsonb not null default '[]'::jsonb, -- array of {id,category,name,price}
   available boolean not null default true,
+
+  -- Billing (only providers pay; clients are always free)
+  -- 'free'  -> up to 5 bookings/month, no portfolio photos
+  -- 'pro'   -> unlimited bookings + photo uploads, 699 MKD/month
+  plan text not null default 'free' check (plan in ('free', 'pro')),
+  plan_renews_at timestamptz,
 
   created_at timestamptz not null default now()
 );
@@ -112,7 +118,7 @@ create table public.bookings (
 
   client_id uuid
     references public.clients(id)
-    on delete set null,
+    on delete cascade, -- deleting a client wipes their bookings & reviews too
 
   availability_id uuid
     references public.availability(id)
@@ -149,6 +155,7 @@ create table public.bookings (
 
   -- Notification
   provider_notified boolean not null default true,
+  client_notified boolean not null default true,
 
   created_at timestamptz not null default now()
 );
@@ -189,23 +196,21 @@ alter table public.portfolio_photos enable row level security;
 -- 8. PROVIDER POLICIES
 -- =========================================================
 
--- Everyone can see provider profiles
+drop policy if exists "public read providers" on public.providers;
 create policy "public read providers"
 on public.providers
 for select
 to anon, authenticated
 using (true);
 
-
--- Logged-in user can create ONLY their own provider profile
+drop policy if exists "owner insert provider" on public.providers;
 create policy "owner insert provider"
 on public.providers
 for insert
 to authenticated
 with check (auth.uid() = auth_user_id);
 
-
--- Logged-in user can update ONLY their own provider profile
+drop policy if exists "owner update provider" on public.providers;
 create policy "owner update provider"
 on public.providers
 for update
@@ -213,8 +218,7 @@ to authenticated
 using (auth.uid() = auth_user_id)
 with check (auth.uid() = auth_user_id);
 
-
--- Logged-in user can delete ONLY their own provider profile
+drop policy if exists "owner delete provider" on public.providers;
 create policy "owner delete provider"
 on public.providers
 for delete
@@ -226,23 +230,21 @@ using (auth.uid() = auth_user_id);
 -- 9. CLIENT POLICIES
 -- =========================================================
 
--- Everyone can read client profiles if needed by the app
+drop policy if exists "public read clients" on public.clients;
 create policy "public read clients"
 on public.clients
 for select
 to anon, authenticated
 using (true);
 
-
--- Client can create only their own profile
+drop policy if exists "owner insert client" on public.clients;
 create policy "owner insert client"
 on public.clients
 for insert
 to authenticated
 with check (auth.uid() = auth_user_id);
 
-
--- Client can update only their own profile
+drop policy if exists "owner update client" on public.clients;
 create policy "owner update client"
 on public.clients
 for update
@@ -250,8 +252,7 @@ to authenticated
 using (auth.uid() = auth_user_id)
 with check (auth.uid() = auth_user_id);
 
-
--- Client can delete only their own profile
+drop policy if exists "owner delete client" on public.clients;
 create policy "owner delete client"
 on public.clients
 for delete
@@ -263,15 +264,14 @@ using (auth.uid() = auth_user_id);
 -- 10. AVAILABILITY POLICIES
 -- =========================================================
 
--- Clients need to see available appointments
+drop policy if exists "public read availability" on public.availability;
 create policy "public read availability"
 on public.availability
 for select
 to anon, authenticated
 using (true);
 
-
--- Logged-in providers can create availability
+drop policy if exists "authenticated insert availability" on public.availability;
 create policy "authenticated insert availability"
 on public.availability
 for insert
@@ -285,8 +285,7 @@ with check (
   )
 );
 
-
--- Provider can update own availability
+drop policy if exists "owner update availability" on public.availability;
 create policy "owner update availability"
 on public.availability
 for update
@@ -308,8 +307,7 @@ with check (
   )
 );
 
-
--- Provider can delete own availability
+drop policy if exists "owner delete availability" on public.availability;
 create policy "owner delete availability"
 on public.availability
 for delete
@@ -328,23 +326,21 @@ using (
 -- 11. BOOKING POLICIES
 -- =========================================================
 
--- Clients need to see bookings
+drop policy if exists "public read bookings" on public.bookings;
 create policy "public read bookings"
 on public.bookings
 for select
 to anon, authenticated
 using (true);
 
-
--- Allow authenticated users to create bookings
+drop policy if exists "authenticated insert bookings" on public.bookings;
 create policy "authenticated insert bookings"
 on public.bookings
 for insert
 to authenticated
 with check (true);
 
-
--- Allow authenticated users to update bookings
+drop policy if exists "authenticated update bookings" on public.bookings;
 create policy "authenticated update bookings"
 on public.bookings
 for update
@@ -357,15 +353,14 @@ with check (true);
 -- 12. PORTFOLIO POLICIES
 -- =========================================================
 
--- Everyone can see portfolio photos
+drop policy if exists "public read portfolio" on public.portfolio_photos;
 create policy "public read portfolio"
 on public.portfolio_photos
 for select
 to anon, authenticated
 using (true);
 
-
--- Provider can upload own portfolio photos
+drop policy if exists "owner insert portfolio" on public.portfolio_photos;
 create policy "owner insert portfolio"
 on public.portfolio_photos
 for insert
@@ -376,11 +371,11 @@ with check (
     from public.providers p
     where p.id = provider_id
       and p.auth_user_id = auth.uid()
+      and p.plan = 'pro' -- free plan cannot upload portfolio photos
   )
 );
 
-
--- Provider can delete own portfolio photos
+drop policy if exists "owner delete portfolio" on public.portfolio_photos;
 create policy "owner delete portfolio"
 on public.portfolio_photos
 for delete
@@ -404,24 +399,21 @@ values ('avatars', 'avatars', true)
 on conflict (id) do update
 set public = true;
 
-
--- Anyone can view images
+drop policy if exists "public read avatar images" on storage.objects;
 create policy "public read avatar images"
 on storage.objects
 for select
 to anon, authenticated
 using (bucket_id = 'avatars');
 
-
--- Logged-in users can upload images
+drop policy if exists "authenticated upload avatar images" on storage.objects;
 create policy "authenticated upload avatar images"
 on storage.objects
 for insert
 to authenticated
 with check (bucket_id = 'avatars');
 
-
--- Logged-in users can update images
+drop policy if exists "authenticated update avatar images" on storage.objects;
 create policy "authenticated update avatar images"
 on storage.objects
 for update
@@ -429,8 +421,7 @@ to authenticated
 using (bucket_id = 'avatars')
 with check (bucket_id = 'avatars');
 
-
--- Logged-in users can delete images
+drop policy if exists "authenticated delete avatar images" on storage.objects;
 create policy "authenticated delete avatar images"
 on storage.objects
 for delete
@@ -444,31 +435,30 @@ using (bucket_id = 'avatars');
 
 do $$
 begin
-
   if not exists (
-    select 1
-    from pg_publication_tables
-    where pubname = 'supabase_realtime'
-      and schemaname = 'public'
-      and tablename = 'bookings'
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'bookings'
   ) then
     alter publication supabase_realtime add table public.bookings;
   end if;
 
-
   if not exists (
-    select 1
-    from pg_publication_tables
-    where pubname = 'supabase_realtime'
-      and schemaname = 'public'
-      and tablename = 'availability'
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'availability'
   ) then
     alter publication supabase_realtime add table public.availability;
   end if;
-
 end $$;
 
 
 -- =========================================================
 -- DONE
+-- Notes:
+-- * `plan` defaults to 'free'. Flip a provider to 'pro' manually for now
+--   (update public.providers set plan = 'pro' where id = '...';) until a
+--   real payment gateway is wired up (see the commented-out code in App.jsx).
+-- * The free-plan 5-bookings/month cap is enforced in the app (client-side),
+--   not by RLS, since "this calendar month" isn't something a simple RLS
+--   policy can check cheaply. The portfolio-photo cap IS enforced by RLS
+--   above, since that's a static plan check.
 -- =========================================================
